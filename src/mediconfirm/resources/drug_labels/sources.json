@@ -1,0 +1,30 @@
+[
+  {
+    "file": "metoprolol_tartrate.xml",
+    "setid": "0a3ccfd4-8b65-4c7e-b0ba-27ff40d5b5e8",
+    "title": "DailyMed: Metoprolol Tartrate",
+    "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0a3ccfd4-8b65-4c7e-b0ba-27ff40d5b5e8",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "amlodipine_besylate.xml",
+    "setid": "79f41cd2-6d58-4b03-8b0c-ca91398bc1a9",
+    "title": "DailyMed: Amlodipine Besylate",
+    "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=79f41cd2-6d58-4b03-8b0c-ca91398bc1a9",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "atorvastatin_calcium.xml",
+    "setid": "6d203e05-1fe6-4262-9d66-b461f84c4672",
+    "title": "DailyMed: Atorvastatin Calcium",
+    "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6d203e05-1fe6-4262-9d66-b461f84c4672",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "calcium_carbonate.xml",
+    "setid": "782398a8-a3d9-4766-a7e1-ceb6d65152b2",
+    "title": "DailyMed: Calcium Carbonate",
+    "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=782398a8-a3d9-4766-a7e1-ceb6d65152b2",
+    "retrieved_on": "2026-11-09"
+  }
+]
