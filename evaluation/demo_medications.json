@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "medications": [
+    {
+      "name": "Metoprolol Tartrate",
+      "strength": "50 mg",
+      "time": "08:00",
+      "dose": "1 tablet"
+    },
+    {
+      "name": "Amlodipine Besylate",
+      "strength": "5 mg",
+      "time": "12:00",
+      "dose": "1 tablet"
+    },
+    {
+      "name": "Atorvastatin Calcium",
+      "strength": "40 mg",
+      "time": "20:00",
+      "dose": "1 tablet"
+    }
+  ]
+}
