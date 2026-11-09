@@ -1,0 +1,47 @@
+[
+  {
+    "file": "metoprolol_50.jpg",
+    "name": "Metoprolol Tartrate",
+    "strength": "50 mg",
+    "source": "NLM DailyMed / American Health Packaging",
+    "label_url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0a3ccfd4-8b65-4c7e-b0ba-27ff40d5b5e8",
+    "image_url": "https://dailymed.nlm.nih.gov/dailymed/image.cfm?setid=0a3ccfd4-8b65-4c7e-b0ba-27ff40d5b5e8&name=50+mg+Metoprolol+Tartrate+Tablets+Carton.jpg",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "metoprolol_100.jpg",
+    "name": "Metoprolol Tartrate",
+    "strength": "100 mg",
+    "source": "NLM DailyMed / American Health Packaging",
+    "label_url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=0a3ccfd4-8b65-4c7e-b0ba-27ff40d5b5e8",
+    "image_url": "https://dailymed.nlm.nih.gov/dailymed/image.cfm?setid=0a3ccfd4-8b65-4c7e-b0ba-27ff40d5b5e8&name=100+mg+Metoprolol+Tartrate+Tablets+Carton.jpg",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "amlodipine_5.jpg",
+    "name": "Amlodipine Besylate",
+    "strength": "5 mg",
+    "source": "NLM DailyMed / American Health Packaging",
+    "label_url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=79f41cd2-6d58-4b03-8b0c-ca91398bc1a9",
+    "image_url": "https://dailymed.nlm.nih.gov/dailymed/image.cfm?setid=79f41cd2-6d58-4b03-8b0c-ca91398bc1a9&name=5+mg+Amlodipine+Besylate+Tablets+Carton.jpg",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "atorvastatin_40.jpg",
+    "name": "Atorvastatin Calcium",
+    "strength": "40 mg",
+    "source": "NLM DailyMed / American Health Packaging",
+    "label_url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=6d203e05-1fe6-4262-9d66-b461f84c4672",
+    "image_url": "https://dailymed.nlm.nih.gov/dailymed/image.cfm?setid=6d203e05-1fe6-4262-9d66-b461f84c4672&name=40+mg+Atorvastatin+Calcium+Tablets+Carton.jpg",
+    "retrieved_on": "2026-11-09"
+  },
+  {
+    "file": "antacid_calcium_carbonate_500.jpg",
+    "name": "Antacid / Calcium Carbonate",
+    "strength": "500 mg",
+    "source": "NLM DailyMed / American Health Packaging",
+    "label_url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=782398a8-a3d9-4766-a7e1-ceb6d65152b2",
+    "image_url": "https://dailymed.nlm.nih.gov/dailymed/image.cfm?setid=782398a8-a3d9-4766-a7e1-ceb6d65152b2&name=Carton.jpg",
+    "retrieved_on": "2026-11-09"
+  }
+]
