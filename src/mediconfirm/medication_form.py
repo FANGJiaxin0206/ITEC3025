@@ -3,6 +3,7 @@ import html
 from collections import OrderedDict
 from pathlib import Path
 import ipywidgets as w
+from .time_picker import IntakeTimes
 from .bulk_medications import load_saved_medications, save_medication_entries
 
 class MedicationListForm:
@@ -20,7 +21,7 @@ class MedicationListForm:
         self.save_button = w.Button(description='Save medication list', button_style='success', layout=w.Layout(width='160px'))
         self.add_button.on_click(lambda _: self.add_row())
         self.save_button.on_click(lambda _: self.save())
-        self.widget = w.VBox([w.HTML('<h3>Medication list</h3><p>Complete the fields, add more rows if needed, then save the list. Use 100 mg for strength, 1 tablet for dose, and 08:00 or 08:00;20:00 for times.</p>'), self.entries_box, w.HBox([self.add_button, self.save_button]), self.message, self.preview])
+        self.widget = w.VBox([w.HTML('<h3>Medication list</h3><p>Complete the fields, add more rows if needed, then save the list. Use 100 mg for strength, 1 tablet for dose, and the hour/minute selectors for intake times.</p>'), self.entries_box, w.HBox([self.add_button, self.save_button]), self.message, self.preview])
         try:
             self.medications = load_saved_medications(self.path)
         except Exception as exc:
@@ -54,10 +55,10 @@ class MedicationListForm:
         labels = [('name', 'Medication name', 'As printed on the package'), ('time', 'Schedule time', '08:00 or 08:00;20:00'), ('strength', 'Strength', 'e.g. 100 mg'), ('dose', 'Dose per intake', 'e.g. 1 tablet')]
         boxes = []
         for key, title, placeholder in labels:
-            field = w.Text(value=values.get(key, ''), placeholder=placeholder, layout=w.Layout(width='100%'), continuous_update=True)
+            field = IntakeTimes(value=values.get(key, '08:00')) if key == 'time' else w.Text(value=values.get(key, ''), placeholder=placeholder, layout=w.Layout(width='100%'), continuous_update=True)
             field.observe(self.mark_dirty, names='value')
             fields[key] = field
-            boxes.append(w.VBox([w.Label(title), field], layout=w.Layout(width='210px')))
+            boxes.append(w.VBox([w.Label(title), field], layout=w.Layout(width='300px' if key == 'time' else '210px')))
         delete = w.Button(description='Remove', button_style='', layout=w.Layout(width='70px'))
         box = w.Box(boxes + [delete], layout=w.Layout(display='flex', flex_flow='row wrap', align_items='flex-end', border='1px solid #ddd', padding='10px', margin='4px 0'))
         row = {'fields': fields, 'box': box, 'delete': delete, 'parts': boxes}
@@ -80,7 +81,7 @@ class MedicationListForm:
 
     def save(self):
         rows = [{key: field.value.strip() for key, field in row['fields'].items()} for row in self.rows]
-        rows = [row for row in rows if any(row.values())]
+        rows = [row for row in rows if any(row[key] for key in ('name', 'strength', 'dose')) or row['time'] not in ('', '08:00')]
         try:
             saved = save_medication_entries(rows, self.path)
         except Exception as exc:

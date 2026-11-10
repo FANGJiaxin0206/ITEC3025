@@ -24,3 +24,8 @@ class EntryPointTests(unittest.TestCase):
         with patch.object(entry, 'check_setup', return_value=0), patch.object(entry.subprocess, 'call') as call:
             self.assertEqual(entry.main(['--check']), 0)
             call.assert_not_called()
+
+    def test_web_alias_launches_existing_server(self):
+        with patch.object(entry.subprocess, 'call', return_value=0) as call:
+            self.assertEqual(entry.main(['web']), 0)
+            self.assertEqual(Path(call.call_args.args[0][1]).name, 'run_mobile.py')

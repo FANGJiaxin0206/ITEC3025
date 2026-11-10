@@ -33,7 +33,7 @@ def check_setup():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('interface', nargs='?', choices=('notebook', 'mobile'), default='notebook')
+    parser.add_argument('interface', nargs='?', choices=('notebook', 'web', 'mobile'), default='notebook')
     parser.add_argument('--check', action='store_true', help='Check local setup without starting a server or calling an API.')
     args, extra = parser.parse_known_args(argv)
     if args.check:

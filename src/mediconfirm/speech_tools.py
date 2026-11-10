@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from .text_format import readable_english
 _model = None
 
 def decode_recording(data_url):
@@ -54,7 +55,7 @@ def transcribe_recording(data_url):
 
 def spoken_text(text):
     import re
-    text = str(text)
+    text = readable_english(text)
     text = re.sub('!\\[([^\\]]*)\\]\\([^)]+\\)', '\\1', text)
     text = re.sub('\\[([^\\]]+)\\]\\([^)]+\\)', '\\1', text)
     text = re.sub('(?m)^\\s{0,3}#{1,6}\\s+', '', text)

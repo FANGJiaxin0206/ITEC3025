@@ -28,7 +28,7 @@ class CachedLabelTests(unittest.TestCase):
 class MobileTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
-  save_medication_entries([dict(name='Amlodipine Besylate',strength='5 mg',time='12:00',dose='1 tablet')],self.root/'data/personal_medications.json')
+  save_medication_entries([dict(name='Amlodipine Besylate',strength='5 mg',time='12:00',dose='1 tablet')],(self.root/'data/personal_medications.json').resolve())
   self.app=create_app(self.root,access_token='test-access',config=dict(api_key='fake-private-key',model='gpt-4.1'))
   self.client=self.app.test_client();self.client.get('/?access=test-access');self.client.get('/api/state')
   self.phone=next(iter(self.app.extensions['mediconfirm_sessions'].values()));self.phone.app.voice=False
@@ -62,20 +62,24 @@ class MobileTests(unittest.TestCase):
   self.photo();s=self.action('chat',text='I have chest pain').get_json();self.assertEqual(s['flow_page'],'help')
   self.assertIn('NOT SENT',s['notification_text']);self.assertFalse(s['confirmation_ready'])
   self.assertFalse(self.photo().get_json()['confirmation_ready'])
- def test_separate_session_data(self):
+ def test_browsers_share_one_local_profile(self):
   c=self.app.test_client();c.get('/?access=test-access');c.get('/api/state')
-  self.assertEqual(len(self.app.extensions['mediconfirm_sessions']),2)
-  folders=[str(x.app.log_path) for x in self.app.extensions['mediconfirm_sessions'].values()];self.assertEqual(len(set(folders)),2)
+  self.assertEqual(len(self.app.extensions['mediconfirm_sessions']),1)
+  folders=[str(x.app.log_path) for x in self.app.extensions['mediconfirm_sessions'].values()];self.assertEqual(len(set(folders)),1)
  def test_cross_origin_post_rejected(self):
   self.assertEqual(self.client.post('/api/action',json={'action':'replay'},headers={'Origin':'https://example.com'}).status_code,403)
- def test_original_medication_list_not_overwritten(self):
-  before=(self.root/'data/personal_medications.json').read_bytes()
+ def test_web_edit_updates_the_shared_medication_list(self):
+  before=((self.root/'data/personal_medications.json').resolve()).read_bytes()
   self.action('save_list',medications=[dict(name='B',strength='10 mg',time='08:00',dose='1 tablet')])
-  self.assertEqual((self.root/'data/personal_medications.json').read_bytes(),before)
- def test_simulated_timeout_has_unsent_notice(self):
-  self.action('simulation',value='new_demo');self.action('simulation',value='remind');self.phone.app.voice=False
-  self.action('simulation',value='advance');s=self.action('simulation',value='advance').get_json()
-  self.assertIn('Unconfirmed',s['schedule_text']);self.assertIn('NOT SENT',s['notification_text'])
+  self.assertNotEqual(((self.root/'data/personal_medications.json').resolve()).read_bytes(),before)
+  self.assertEqual(self.phone.medication_path,(self.root/'data/personal_medications.json').resolve())
+ def test_timeout_has_unsent_notice_in_the_same_log(self):
+  from mediconfirm.plan_actions import process_plan
+  self.action('start_reminder');self.phone.app.voice=False
+  process_plan(self.phone.app.log_path,self.phone.app.medications,self.phone.app.selected_time,advance_minutes=11)
+  state=self.client.get('/api/state').get_json()
+  self.assertIn('Unconfirmed',state['schedule_text']);self.assertIn('NOT SENT',state['notification_text'])
+  self.assertEqual(self.phone.app.log_path,(self.root/'data/intake_records.json').resolve())
  def test_invalid_photo_no_confirmation(self):
   s=self.client.post('/api/photo',data={'photo':(io.BytesIO(b'not a photo'),'bad.jpg')})
   self.assertEqual(s.status_code,400);self.assertFalse(self.phone.app.confirmation_ready)

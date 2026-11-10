@@ -31,19 +31,19 @@ def lan_address():
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description='Run the local MediConfirm phone interface.')
+    parser=argparse.ArgumentParser(description='Run the local MediConfirm desktop website.')
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--host',default='0.0.0.0')
     parser.add_argument('--https',action='store_true',help='Use a temporary self-signed HTTPS certificate.')
     args=parser.parse_args()
     token=secrets.token_urlsafe(24)
-    app=create_app(ROOT,access_token=token)
+    app=create_app(ROOT,access_token=token,start_scheduler=True)
     protocol='https' if args.https else 'http'
-    print('\nMediConfirm phone interface - local testing only',flush=True)
+    print('\nMediConfirm desktop web interface - local testing only',flush=True)
     print(f'Computer: {protocol}://127.0.0.1:{args.port}/?access={token}',flush=True)
-    print(f'Phone:    {protocol}://{lan_address()}:{args.port}/?access={token}',flush=True)
-    print('Keep this terminal open. Phone and computer must share a network.',flush=True)
-    print('Use Take a photo on the phone. Live browser recording requires HTTPS; typing and audio upload remain available.',flush=True)
-    print('Press Ctrl+C to stop. No public hosting or real notifications.\n',flush=True)
+    print(f'Optional LAN: {protocol}://{lan_address()}:{args.port}/?access={token}',flush=True)
+    print('Keep this terminal open and use the Computer link for desktop testing.',flush=True)
+    print('Open camera starts a live computer-camera preview. Allow camera and microphone access when prompted.',flush=True)
+    print('Press Ctrl+C to stop. Real email requires local sender setup and explicit enablement.\n',flush=True)
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
     app.run(host=args.host,port=args.port,debug=False,use_reloader=False,ssl_context='adhoc' if args.https else None,threaded=True)

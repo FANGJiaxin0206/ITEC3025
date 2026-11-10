@@ -1,3 +1,4 @@
+function readableEnglish(value){return String(value||'').replace(/\b([A-Za-z]+)[ \t\u00a0\u2009\u202f\u200b]*['’‘＇ʼ][ \t\u00a0\u2009\u202f\u200b]*(m|re|ve|ll|d|s|t)\b/gi,"$1'$2").replace(/([A-Za-z0-9])[ \t\u00a0\u2009\u202f]+,/g,'$1,').replace(/([A-Za-z]),[ \t]*(?=[A-Za-z0-9])/g,'$1, ').replace(/([A-Za-z])，[ \t]*(?=[A-Za-z0-9])/g,'$1, ');}
 function render({ model, el }) {
   el.innerHTML = `
     <div class="mc-simple">
@@ -64,7 +65,7 @@ function render({ model, el }) {
         <button data-action="end-session">End session and return home</button>
       </div>
       <p data-role="reminder" style="white-space:pre-wrap;font-size:19px" aria-live="polite"></p>
-      <details><summary>Demo reminders and family notifications</summary>
+      <details hidden><summary>Legacy controls</summary>
       <button data-action="new-demo">New demo (separate log)</button>
       <button data-action="start-reminder">Start schedule reminder</button>
       <button data-action="advance-demo">Advance 5 simulated minutes</button>
@@ -72,7 +73,7 @@ function render({ model, el }) {
       <p data-role="simulation-status" aria-live="polite"></p>
       <p data-role="notifications" style="white-space:pre-wrap" aria-live="polite"></p>
       </details>
-      <details><summary>Status and log</summary>
+      <details hidden><summary>Status and log</summary>
       <p data-role="schedule-log" style="white-space:pre-wrap" aria-live="polite"></p>
       <button data-action="refresh-log">Refresh status</button></details>
       <audio controls hidden></audio><p data-role="audio-note"></p>
@@ -411,7 +412,7 @@ function render({ model, el }) {
     for (const message of model.get("dialogue_messages") || []) {
       const line = document.createElement("p");
       line.className = "mc-message " + (message.role === "user" ? "mc-user" : "mc-assistant");
-      const content = (message.role === "user" ? "You: " : "MediConfirm: ") + String(message.content || "");
+      const content = (message.role === "user" ? "You: " : "MediConfirm: ") + readableEnglish(message.content);
       if (message.role === "assistant" && /\*\*[^*]+\*\*/.test(content)) {
         const parts = content.split(/(\*\*[^*]+\*\*)/g);
         for (const part of parts) {

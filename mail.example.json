@@ -1,0 +1,9 @@
+{
+  "smtp_host": "smtp.gmail.com",
+  "smtp_port": 465,
+  "smtp_security": "ssl",
+  "sender_email": "YOUR_GMAIL_ADDRESS",
+  "sender_name": "MediConfirm",
+  "username": "YOUR_GMAIL_ADDRESS",
+  "app_password": "YOUR_GOOGLE_APP_PASSWORD"
+}

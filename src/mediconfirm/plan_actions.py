@@ -8,17 +8,17 @@ def _notice(store, key, kind, text, moment, **details):
     notices = store.setdefault('simulated_notifications', {})
     if key in notices:
         return None
-    item = {'notification_id': key, 'type': kind, 'at': moment.isoformat(timespec='seconds'), 'simulated': True, 'sent': False, 'channel': 'email_simulation', 'recipient': 'Family / caregiver (simulation only)', 'message': text, **details}
+    item = {'notification_id': key, 'requires_delivery': True, 'type': kind, 'at': moment.isoformat(timespec='seconds'), 'simulated': True, 'sent': False, 'channel': 'email_simulation', 'recipient': 'Family / caregiver (simulation only)', 'message': text, **details}
     notices[key] = item
     return item
 
-def process_plan(path, medications, selected_time, timeout_seconds=600, start=False, advance_minutes=0, now=None):
+def process_plan(path, medications, selected_time, timeout_seconds=600, start=False, advance_minutes=0, now=None, repeat_seconds=None):
     moment = _moment(now)
     advance = float(advance_minutes)
     if not math.isfinite(advance) or advance < 0 or advance > 1440:
         raise ValueError('Advance must be between 0 and 1440 simulated minutes.')
     if start:
-        start_plan(path, medications, selected_time, timeout_seconds, moment)
+        start_plan(path, medications, selected_time, timeout_seconds, moment, repeat_seconds=repeat_seconds)
     with _LOCK:
         store = _load(path)
         changed = False
@@ -46,12 +46,12 @@ def process_plan(path, medications, selected_time, timeout_seconds=600, start=Fa
                 msg = f"The {e['scheduled_time']} intake of {e['name']}, {e['strength']} has not been confirmed. Please check in with the person. This does not establish that a dose was missed."
                 notice = _notice(store, e['event_id'] + ':timeout', 'timeout', msg, moment, event_id=e['event_id'], simulated_elapsed_minutes=offset)
                 if notice:
-                    messages.append(f"I have not received confirmation for {e['name']} yet. Its status is unconfirmed. A family notification has been simulated; no message was sent.")
+                    messages.append(f"I have not received confirmation for {e['name']} yet. Its status is unconfirmed. A family notification has been created. Check its delivery status in Me.")
                     changed = True
-            elif e.get('status') == 'Pending' and elapsed >= duration / 2 and (not e.get('repeat_reminder_at')):
+            elif e.get('status') == 'Pending' and elapsed >= e.get('repeat_after_seconds', duration / 2) and (not e.get('repeat_reminder_at')):
                 e['repeat_reminder_at'] = stamp
                 e.setdefault('reminder_history', []).append({'at': stamp, 'kind': 'repeat_question', 'simulated_elapsed_minutes': offset})
-                messages.append(f"Have you taken your {e['scheduled_time']} {e['name']} yet? If you have already taken it, please confirm your status. There is no need to take another dose to answer this question.")
+                messages.append(f"Have you taken your {e['scheduled_time']} {e['name']} yet? Please select Already taken or Not yet.")
                 changed = True
         if changed:
             atomic_json(path, store)

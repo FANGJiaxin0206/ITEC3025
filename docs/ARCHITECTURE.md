@@ -1,112 +1,78 @@
-# Architecture and UI integration
+# MediConfirm architecture
 
-## What this project does
+## User interface
 
-MediConfirm helps a user compare one photographed medication package with a saved medication list. It can answer grounded questions, speak responses, and save an explicit intake self-report. It does not prescribe medication or verify swallowing.
+The desktop navigation is Home, Chat and Me. Me opens medication management, reminder settings, history or family notifications. A package check is a task entered from a Home medication card, rather than a main navigation item. There are no visible demo controls or separate test-log creation actions.
 
-## Entry points
+The browser owns camera/microphone access. `web/desktop_camera.mjs` releases streams on capture, close, cancellation and navigation, and discards late permission responses. `web/app.js` sends photos and reviewed speech/text to Python. The API key never enters the frontend.
 
-| Entry | Purpose |
+## Existing endpoints
+
+| Endpoint | Contract |
 | --- | --- |
-| `python main.py` | Open the Notebook demonstration using the current Python environment. |
-| `python main.py mobile` | Start the local phone web interface. |
-| `python main.py --check` | Check files, dependencies and key availability without network or hardware access. |
-| `MediConfirm.ipynb` | Install, configure, edit the list and demonstrate the Notebook UI. |
+| `GET /api/state` | Current controller state, daily plan, settings, history and notifications |
+| `POST /api/action` | A JSON action described below |
+| `POST /api/photo` | Multipart `photo`; invalidates earlier verification before decoding input |
+| `POST /api/speech` | Multipart `audio`; returns editable transcription without saving intake |
 
-`main.py` only selects an interface. It contains no matching, medical or logging rules.
+Open the launcher's access link to authorize a browser. Every authorized browser uses the same local controller and storage; cookies do not select separate records.
 
-## Main flow
+### JSON actions
 
-1. Load a saved list with medication name, package strength, schedule time and dose per intake.
-2. Select a schedule manually and start its pending events.
-3. Capture or upload one package image.
-4. `HKBUClient.extract()` reads visible fields without seeing the expected medication.
-5. `identify_photo()` and `check_medication_list()` compare those fields with the selected list.
-6. The UI displays and speaks Match, Mismatch or Uncertain, with the relevant explanation.
-7. A current Match enables explicit confirmation. It does not itself save Taken.
-8. A button or reviewed confirmation text is validated against the current verification token, date, schedule and list.
-9. `record_intake()` saves the self-report and prevents duplicate Taken events.
-
-Retaking a photo, changing a schedule or updating a list invalidates previous confirmation evidence.
-
-## Modules and responsibilities
-
-| Module | Responsibility |
-| --- | --- |
-| `core.py` | Pure verification helpers, normalization, finite severe-phrase and confirmation rules, atomic JSON writes. |
-| `bulk_medications.py` | Validate the list, expand daily times, produce IDs, load and save entries. |
-| `simple_service.py` | Extract a photo and compare it with the selected schedule; explain mismatches. |
-| `integrations.py` | Make authenticated HKBU requests and parse structured label extraction. |
-| `drug_sources.py` | Match official DailyMed evidence and retrieve general-use text. |
-| `resources/drug_labels/` | Dated official label snapshots and their source URLs for demo reproducibility. |
-| `dialogue.py` | Build grounded conversation context and request a reply. |
-| `speech_tools.py` | Decode audio, transcribe English with Whisper, remove display formatting from spoken text. |
-| `intake_store.py` | Save Pending/Taken/Unconfirmed events, reasons and history. |
-| `plan_actions.py` | Initial/repeat reminders, simulated elapsed time, and deduplicated unsent notifications. |
-| `simple_ui.py` | Coordinate the current workflow, confirmation eligibility, speech output and UI state. |
-| `medication_form.py` | Notebook medication-list input form. |
-| `simple_camera.mjs` | Notebook browser camera, microphone and controls. |
-| `mobile_server.py` | Authenticated phone sessions, uploads, JSON actions and state responses. |
-| `web/` | Phone HTML, CSS and browser JavaScript. |
-
-## Notebook and phone relationship
-
-The Notebook and phone interface are separate views. Both currently use `SimpleCameraApp` as their workflow controller, which in turn calls the shared services above. The phone adapter creates a Python controller per browser session and exposes selected state through Flask. It does not deliver the Notebook widget itself to the phone.
-
-This is not yet a fully UI-independent application layer: `SimpleCameraApp` inherits from AnyWidget. A larger future UI merge can extract that controller into a plain Python session class while keeping the service functions and storage rules. A visual-only phone redesign can replace `web/` without that refactor.
-
-## Phone API contract
-
-All `/api/` routes require the local access-link session. POST requests from another origin are rejected. The API key is used only by the server.
-
-| Endpoint | Input | Behavior |
+| Action | Additional fields | Behavior |
 | --- | --- | --- |
-| `GET /api/state` | Browser session cookie | Refresh deadlines and return safe UI state. |
-| `POST /api/photo` | Multipart `photo` | Validate and convert the image, verify it, and return the result. |
-| `POST /api/speech` | Multipart `audio` | Return an editable transcript; never auto-confirm intake. |
-| `POST /api/action` | JSON `action` and fields | Perform the operations below. |
+| `select_event` | `event_id` | Validate today's event, select its medication and enter the check flow |
+| `prepare_photo` | None | Invalidate the earlier verification before camera capture or upload |
+| `confirm` | `verification_id`, `status` or reviewed `text` | Explicit intake self-report tied to the current verification |
+| `flow` | `value` | Existing navigation/cancellation actions |
+| `chat` | `text` | Grounded conversation with optional package context |
+| `uses` | None | General-use explanation backed by the matching official source |
+| `save_list` | `medications` | Validate and save the whole shared list |
+| `settings` | `settings` | Validate and save shared preferences |
+| `replay`, `clear_chat`, `playback_error` | None | Response replay, conversation clearing and audio failure handling |
 
-Action examples:
+Private compatibility helpers may remain in Python for regression tests, but the web API rejects the old `simulation` action.
 
-```json
-{"action":"time","value":"08:00"}
-{"action":"chat","text":"Is this my morning medication?"}
-{"action":"uses"}
-{"action":"confirm","status":"Taken","verification_id":"CURRENT_TOKEN"}
-{"action":"confirm","text":"I have not taken it.","verification_id":"CURRENT_TOKEN"}
-{"action":"flow","value":"cancel"}
-{"action":"simulation","value":"new_demo"}
-{"action":"simulation","value":"advance"}
-```
+Settings include `repeat_seconds`, `timeout_seconds`, `reminders_enabled`, `caregiver_email` and `real_email_enabled`. Defaults are 300 and 600 seconds. The repeat delay must be positive and smaller than the timeout. Each new event snapshots its repeat delay and deadline, so later settings changes do not silently extend an existing event.
 
-The state includes `result_text`, `confirmation_ready`, `verification_id`, `dialogue_messages`, `source_status`, `source_links`, `audio_data`, `schedule_text` and `notification_text`. Render model content as text or explicitly supported formatting, never executable HTML.
+State adds `daily_plan`, `history_records`, `family_notifications`, `target_medication_id`, `verification_status`, `server_time` and `settings` to existing interaction fields. Daily plan entries include an `event_id`, schedule, medication details and display status. A plan not yet started is displayed as Scheduled; persistent intake states remain Pending, Taken and Unconfirmed.
 
-## Rules to preserve during a UI merge
+When two medications share a time, selecting one card restricts photo matching to that medication ID. A matching package for a different event must not enable confirmation for the selected event.
 
-- The server decides Match/Mismatch/Uncertain and whether confirmation is allowed. The frontend must not manufacture a Match or reuse an old token.
-- Automatic transcription and ordinary chat do not save Taken. Confirmation is a separate user action after a valid Match.
-- Name, strength, time and per-intake dose are distinct fields.
-- Pending means awaiting confirmation. Unconfirmed means no confirmation was received, not proven non-adherence.
-- Repeated requests must not create duplicate Taken records or duplicate simulated notices.
-- General uses come from the displayed official source. A source lookup never overrides package matching or determines personal prescribing reasons. An unverified coating must not be described as fully verified.
-- Severe-demo reports pause the normal flow and invalidate confirmation. The rules cover finite examples, not medical triage.
-- Keep keys and health records off the frontend and out of Git.
+## Shared persistence
 
-## Storage
+`shared_storage.py` prepares `data/personal_medications.json`, `data/settings.json` and `data/intake_records.json`. The website and Notebook use these same paths. Regular legacy browser logs are merged once, deduplicating event IDs and preserving explicit Taken reports over unconfirmed records. Original files and backups are retained. Legacy test-run files are not inserted into daily history. A migration report records skipped malformed files.
 
-| Path | Contents | Included in Git |
-| --- | --- | --- |
-| `config.example.json` | Placeholder configuration | Yes |
-| `config.local.json` | Local key/model configuration | No |
-| `data/personal_medications.json` | Local Notebook medication list | No |
-| `data/intake_records.json` | Notebook events and simulated notices | No |
-| `data/demo_runs/` | Separate Notebook demo rounds | No |
-| `data/mobile_runs/` | Separate phone lists and logs | No |
-| `evaluation/demo_medications.json` | Fictional demonstration list | Yes |
-| `evaluation/` | Current printable props and public source images | Yes |
+`storage_lock.py` uses a reentrant thread lock and a macOS/Linux file lock shared by the Notebook and web processes. Read-modify-write event transactions and atomic JSON writes use this lock. Reminder checks share the controller lock with web actions. Tests verify that concurrent processes do not lose each other's events.
 
-The upload copy contains an empty runtime `data/` directory and a clean Notebook without outputs or saved widget state. The working local Notebook and runtime data remain intact.
+On each web refresh, medication and setting changes made through the Notebook are reloaded. A changed list invalidates stale verification. The Notebook dashboard reloads external settings; rerun/refresh its form after external list edits.
 
-## Current scope
+## Clock and notifications
 
-The phone interface is a local prototype awaiting visual refinement. It is not a native app or public deployment. Real background scheduling, real email delivery, bilingual voice support, the OCR baseline and formal user-study analysis are not implemented. HTTP phone connections support photo selection/upload and typing; live browser microphone recording requires a secure context.
+The clock is the computer clock represented in Asia/Hong_Kong. The web launcher runs a periodic worker for the initialized shared controller. It starts schedule slots matching the current minute, asks again after the event's repeat delay, and marks an unanswered event Unconfirmed at its deadline. Taken stops further reminders for that event. Restarting reconciles saved deadlines; this is not an OS alarm service and does not backfill earlier unstarted slots.
+
+`web_settings.py` freezes the caregiver email and content of each unsent notification. `email_delivery.py` submits enabled notifications through the locally configured SMTP sender. Credentials are never returned in browser state. A predefined severe-discomfort report pauses the normal flow and records a notification without waiting for a successful email delivery.
+
+## Secrets and runtime data
+
+The local API configuration, shared records, migration backups and cookie signing key are ignored by Git. The repository includes example configuration and code, not personal runtime data. The original MediConfirm project remains separate from mediconfirm_v2.
+
+## Scoped audio and current-plan selection
+
+State includes current_plan_time and current_plan_kind, computed from the Hong Kong clock rather than selected_time. The read_plan action builds narration from the highlighted schedule's saved facts.
+
+Web speech outputs are retained as bounded audio clips with an ID, page scope, target and transcript. GET /api/audio/<clip_id> returns authenticated MP3 data. State exposes clip metadata and URLs rather than repeating base64 audio on every poll. replay_clip regenerates a known clip only; arbitrary narration text is not accepted.
+
+Chat messages have message_id values for attaching their voice control; UI metadata is stripped before sending chat history to the model. Plan, reminder, result, confirmation and help clips have distinct targets. single_audio.mjs owns one audio element, moves it into the corresponding response, and pauses it on page changes or another clip. Browser visibility and same-origin BroadcastChannel coordination reduce duplicate playback from multiple tabs. Separate browser profiles or the Notebook cannot be controlled by the website.
+
+## Email and evaluation endpoints
+
+- `send_test_email`: creates a generic test notification, requiring a configured sender, saved recipient and explicit real-email enablement.
+- `retry_email`: requires `notification_id`; explicitly retries eligible failed or unsent notifications.
+- `POST /api/metrics`: submits task button-click details.
+- `GET /api/evaluation.csv`: exports task summaries; detailed records remain in `data/evaluation_metrics.json`.
+- `POST /api/audio/claim`: claims reminder playback so polling does not repeatedly autoplay it.
+
+SMTP submission is asynchronous and persistently claimed before sending. Submitted means provider acceptance, not inbox delivery. Historical previews are never silently sent. The website is the interface for enabling real email and sending a connection test; the Notebook reuses the shared settings.
+
+For UI merges, keep the existing action payloads, current verification ID, event selection, shared persistence and single-audio ownership intact. Replace presentation inside `src/mediconfirm/web/`; do not move credentials into frontend code. Automated metrics currently cover the website, not Notebook interactions.

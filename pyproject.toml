@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mediconfirm"
 version = "2.0.0"
-description = "A notebook-based medication package verification assistant"
+description = "A desktop web and notebook medication package verification assistant"
 requires-python = ">=3.10"
 dependencies = [
   "Flask>=3.1,<4",
@@ -23,4 +23,4 @@ dependencies = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-mediconfirm = ["*.mjs", "web/*.html", "web/*.css", "web/*.js", "resources/drug_labels/*.xml", "resources/drug_labels/*.json"]
+mediconfirm = ["*.mjs", "web/*.html", "web/*.css", "web/*.js", "web/*.mjs", "resources/drug_labels/*.xml", "resources/drug_labels/*.json"]

@@ -11,7 +11,7 @@ from .integrations import HKBUClient
 from .simple_service import identify_photo
 from .dialogue import Dialogue
 from .speech_tools import transcribe_recording, spoken_text
-from .intake_store import record_intake, record_recovery
+from .intake_store import record_intake, record_recovery, _moment, finish_interrupted_session
 from .core import severe_demo_signal, confirmation_intent
 from .plan_actions import process_plan, report_severe
 from .drug_sources import DailyMedSource, is_use_question
@@ -21,7 +21,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
     _css = '.mc-simple {font:16px sans-serif; max-width:760px; padding:12px}\n    .mc-simple button {padding:12px 18px; margin:4px; font-size:17px; cursor:pointer}\n    .mc-simple button:disabled {cursor:default; opacity:.5}\n    .mc-simple audio {width:100%; max-width:640px}\n    .mc-simple .mc-message {padding:12px 16px;margin:10px 0;border-radius:12px;white-space:pre-wrap;line-height:1.5}\n    .mc-simple .mc-user {background:#e6eff9;color:#172b43;margin-left:36px}\n    .mc-simple .mc-assistant {background:#f2f3f5;color:#202428;margin-right:36px}'
     simulation_request = traitlets.Dict(default_value={}).tag(sync=True)
     simulation_text = traitlets.Unicode('Start a new demo with a separate log, then advance simulated time.').tag(sync=True)
-    notification_text = traitlets.Unicode('No simulated notifications yet.').tag(sync=True)
+    notification_text = traitlets.Unicode('No family notifications yet.').tag(sync=True)
     reminder_text = traitlets.Unicode('').tag(sync=True)
     schedule_request = traitlets.Dict(default_value={}).tag(sync=True)
     schedule_text = traitlets.Unicode('').tag(sync=True)
@@ -68,6 +68,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
         if not math.isfinite(float(confirmation_timeout_seconds)) or float(confirmation_timeout_seconds) <= 0:
             raise ValueError('Confirmation timeout must be positive seconds.')
         self.confirmation_timeout_seconds = float(confirmation_timeout_seconds)
+        self.confirmation_repeat_seconds = None
         self._processing = False
         self.last_result = None
         self.dialogue = Dialogue()
@@ -104,18 +105,18 @@ class SimpleCameraApp(anywidget.AnyWidget):
             self.schedule_text = 'The intake log path has not been configured.'
             return
         try:
-            events, notices, reminders = process_plan(self.log_path, self.medications, self.selected_time, self.confirmation_timeout_seconds, start=start, advance_minutes=advance_minutes)
+            events, notices, reminders = process_plan(self.log_path, self.medications, self.selected_time, self.confirmation_timeout_seconds, start=start, advance_minutes=advance_minutes, repeat_seconds=self.confirmation_repeat_seconds)
             self._show_notifications(notices)
             if reminders:
                 self.reminder_text = '\n'.join(reminders)
                 self._speak(' '.join(reminders))
-            today = datetime.now().astimezone().date().isoformat()
+            today = _moment(None).date().isoformat()
             active = sorted((e for e in events if e.get('date') == today), key=lambda e: (e['scheduled_time'], e['name']))
             if any((e.get('interrupted') and e.get('scheduled_time') == self.selected_time for e in active)):
                 self._blocked = True
                 self._invalidate_verification()
                 self.flow_page = 'help'
-                self.help_text = 'This event was paused after a severe-symptom report and cannot be confirmed. Please seek medical assistance. Start a new demo for an independent classroom test.'
+                self.help_text = 'This event was paused after a severe-symptom report and cannot be confirmed. Please seek medical assistance. Close the current help session to return to your plan.'
             reasons = {'awaiting_confirmation': 'Awaiting confirmation', 'user_reported_not_taken': 'User reported not yet taken', 'user_confirmed_taken': 'User explicitly confirmed intake', 'confirmation_timeout': 'Confirmation deadline passed without a response', 'preset_severe_discomfort_report': 'Preset severe-symptom report; routine flow paused'}
             if self.last_result and self.last_result.get('matched_medication'):
                 med = self.last_result['matched_medication']
@@ -138,7 +139,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
             return False
 
     def _show_notifications(self, notices):
-        self.notification_text = '\n\n'.join(('SIMULATED EMAIL - NOT SENT\n' + n['at'] + '\nTo: ' + n['recipient'] + '\nSubject: ' + n['type'] + '\n' + n['message'] for n in notices[-20:])) or 'No simulated notifications yet.'
+        self.notification_text = '\n\n'.join((('EMAIL SUBMITTED\n' if n.get('sent') else 'EMAIL NOT SENT\n') + n['at'] + '\nTo: ' + n['recipient'] + '\nSubject: ' + n['type'] + '\n' + n['message'] for n in notices[-20:])) or 'No family notifications yet.'
 
     def _on_simulation(self, change):
         if not change['new'] or self._processing:
@@ -204,6 +205,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
 
     def set_check_time(self, selected_time):
         self.selected_time = selected_time
+        self.verification_medication_id = None
         self._invalidate_verification()
         self.result_text = f'Selected {selected_time} medication list. Please take a new photo to verify the package.'
         self.audio_data = ''
@@ -269,6 +271,8 @@ class SimpleCameraApp(anywidget.AnyWidget):
             return
         self.flow_notice = ''
         if action == 'end':
+            if self.log_path is not None:
+                finish_interrupted_session(self.log_path, self.selected_time)
             self._blocked = False
             self.dialogue.reset()
             self.dialogue_messages = list(self.dialogue.messages)
@@ -280,7 +284,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
             self.flow_page = 'help'
             return
         if action == 'resume':
-            if self.last_result and self._photo_date == datetime.now().astimezone().date().isoformat():
+            if self.last_result and self._photo_date == _moment(None).date().isoformat():
                 record = self.last_result.get('intake_record', {})
                 self.flow_page = 'done' if record.get('status') == 'Taken' else 'check'
                 return
@@ -293,7 +297,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
             self.result_text = 'Take a photo of one package to check it against the selected schedule.'
             self.flow_page = 'check'
         elif action in {'chat', 'ask-current'}:
-            if self._photo_date and self._photo_date != datetime.now().astimezone().date().isoformat():
+            if self._photo_date and self._photo_date != _moment(None).date().isoformat():
                 self._invalidate_verification()
             self.flow_page = 'chat'
             self.chat_status = 'The current package is available in this conversation. You can ask about its result, strength, or recorded schedule.' if self.last_result else 'You can talk about how you feel. To ask about a package in your hand, take a photo first.'
@@ -308,10 +312,10 @@ class SimpleCameraApp(anywidget.AnyWidget):
             try:
                 notices, _ = report_severe(self.log_path, self.selected_time, text, self._notification_session)
                 self._show_notifications(notices)
-                self.help_text += ' A simulated family notification has been recorded. No message was sent.'
+                self.help_text += ' A family notification has been recorded. Check its delivery status in Me.'
                 self._refresh_schedule()
             except Exception:
-                self.help_text += ' The simulated notification could not be saved. Check the log path. No message was sent.'
+                self.help_text += ' The notification could not be saved. Please contact someone directly for help.'
         self.dialogue.health_reports.append(text)
         self.dialogue.add('user', text)
         self.dialogue.add('assistant', 'I am sorry you are feeling unwell. I have paused the medication check. Please seek urgent medical help. If symptoms are severe or ongoing, contact your local emergency medical service.')
@@ -333,7 +337,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
                 return
             if self._blocked or self.flow_page != 'check' or (not self.confirmation_ready) or (not self.last_result) or (self.last_result.get('status') != 'Match') or (not self._verification_token) or (payload.get('verification_id') != self._verification_token):
                 raise ValueError('Verify the current package before confirming. A previous result cannot confirm a new photo.')
-            if self._verification_date != datetime.now().astimezone().date().isoformat():
+            if self._verification_date != _moment(None).date().isoformat():
                 raise ValueError('The date has changed. Please take a new photo to verify the package.')
             medication = self.last_result.get('matched_medication')
             if not medication or medication.get('time') != self.selected_time or (not any((all((row.get(k) == medication.get(k) for k in ('name', 'strength', 'time', 'dose'))) for row in self.medications or []))):
@@ -349,7 +353,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
                     return
                 status = 'Taken' if intent == 'taken' else 'Pending'
                 source = 'reviewed_text'
-            event, created = record_intake(self.log_path, medication, self.selected_time, status, source=source, timeout_seconds=self.confirmation_timeout_seconds)
+            event, created = record_intake(self.log_path, medication, self.selected_time, status, source=source, timeout_seconds=self.confirmation_timeout_seconds, repeat_seconds=self.confirmation_repeat_seconds)
             self._refresh_schedule()
             self.last_result['intake_record'] = {key: event.get(key) for key in ('status', 'confirmed_at', 'updated_at', 'self_report_only')}
             self._refresh_package_context()
@@ -503,18 +507,18 @@ class SimpleCameraApp(anywidget.AnyWidget):
             with tempfile.TemporaryDirectory(prefix='mediconfirm_photo_') as tmp:
                 path = Path(tmp) / 'photo.jpg'
                 path.write_bytes(data)
-                result = identify_photo(path, self.client, self.expected_name, self.expected_strength, medications=self.medications, selected_time=self.selected_time)
+                result = identify_photo(path, self.client, self.expected_name, self.expected_strength, medications=[m for m in self.medications if m.get('medication_id') == self.verification_medication_id] if getattr(self, 'verification_medication_id', None) else self.medications, selected_time=self.selected_time)
             self.last_result = result
             if result['status'] in {'Uncertain', 'Mismatch'}:
                 self._recovery('photo_unreadable' if result['status'] == 'Uncertain' else 'package_mismatch')
-            self._photo_date = datetime.now().astimezone().date().isoformat()
+            self._photo_date = _moment(None).date().isoformat()
             self._refresh_package_context()
             labels = {'Recognized': 'Label recognized', 'Match': 'Package matches', 'Mismatch': 'Does not match the selected schedule', 'Uncertain': 'Unable to confirm; check the label or retake the photo'}
             text = result['text']
             if result['status'] == 'Match' and result.get('matched_medication'):
                 self._verification_token = uuid4().hex
                 self.verification_id = self._verification_token
-                self._verification_date = datetime.now().astimezone().date().isoformat()
+                self._verification_date = _moment(None).date().isoformat()
                 self.confirmation_ready = True
                 text += ' Have you taken it yet?'
             self.result_text = labels[result['status']] + '\n' + text

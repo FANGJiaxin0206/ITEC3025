@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {SingleAudioPlayer} from '../src/mediconfirm/web/single_audio.mjs';
+const node=()=>({appendChild(child){child.parentNode=this;}});
+let pauses=0,plays=0;const audio={pause(){pauses++;},async play(){plays++;}};const parking=node(),slotA=node(),slotB=node();
+const channel={postMessage(){}};
+const player=new SingleAudioPlayer(audio,parking,{channel});
+await player.play({id:'a',url:'/api/audio/a'},slotA);assert.equal(audio.parentNode,slotA);
+await player.play({id:'b',url:'/api/audio/b'},slotB);assert.equal(audio.parentNode,slotB);assert.equal(audio.src,'/api/audio/b');assert.equal(pauses,2);assert.equal(plays,2);
+player.stop();assert.equal(player.activeId,null);assert.equal(audio.parentNode,parking);
+await player.play({id:'a',url:'/api/audio/a'},slotA);channel.onmessage({data:{type:'playing',sender:'another-tab'}});assert.equal(player.activeId,null);
+await assert.rejects(player.play({id:'bad',url:'https://example.com/audio'},slotA),/unavailable/);
+console.log('Single-player checks passed: previous clip paused, inline placement, page stop and cross-tab stop.');

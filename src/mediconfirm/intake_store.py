@@ -5,8 +5,9 @@ import math
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from .core import atomic_json
-_LOCK = threading.RLock()
+from .storage_lock import LOCK as _LOCK
 
 def _load(path):
     path = Path(path)
@@ -16,7 +17,7 @@ def _load(path):
     return store
 
 def _moment(now):
-    return now or datetime.now().astimezone()
+    return now or datetime.now(ZoneInfo('Asia/Hong_Kong'))
 
 def _seconds(value):
     value = float(value)
@@ -35,7 +36,7 @@ def _event(med, time, status, source, reason, moment, previous=None):
     timestamp = moment.isoformat(timespec='seconds')
     return {**(previous or {}), 'event_id': event_id, 'date': moment.date().isoformat(), 'scheduled_time': time, 'medication_id': identifier, 'name': med['name'], 'strength': med['strength'], 'recorded_dose': med['dose'], 'status': status, 'source': source, 'reason': reason, 'updated_at': timestamp, 'confirmed_at': timestamp if status == 'Taken' else None, 'self_report_only': True, 'history': list((previous or {}).get('history', [])) + [{'at': timestamp, 'status': status, 'reason': reason, 'source': source}]}
 
-def start_plan(path, medications, scheduled_time, timeout_seconds=600, now=None):
+def start_plan(path, medications, scheduled_time, timeout_seconds=600, now=None, repeat_seconds=None):
     seconds = _seconds(timeout_seconds)
     moment = _moment(now)
     with _LOCK:
@@ -49,6 +50,7 @@ def start_plan(path, medications, scheduled_time, timeout_seconds=600, now=None)
             if previous and (previous.get('status') != 'Pending' or previous.get('deadline_at')):
                 continue
             event = _event(med, scheduled_time, 'Pending', 'plan', 'awaiting_confirmation', moment, previous)
+            event['repeat_after_seconds'] = _seconds(repeat_seconds) if repeat_seconds is not None else seconds / 2
             event['started_at'] = moment.isoformat(timespec='seconds')
             event['deadline_at'] = (moment + timedelta(seconds=seconds)).isoformat(timespec='seconds')
             store['events'][key] = event
@@ -57,7 +59,7 @@ def start_plan(path, medications, scheduled_time, timeout_seconds=600, now=None)
             atomic_json(path, store)
         return list(store['events'].values())
 
-def record_intake(path, medication, scheduled_time, status, source='button', now=None, reason=None, timeout_seconds=600):
+def record_intake(path, medication, scheduled_time, status, source='button', now=None, reason=None, timeout_seconds=600, repeat_seconds=None):
     if status not in {'Taken', 'Pending'}:
         raise ValueError('Invalid self-report status.')
     moment = _moment(now)
@@ -69,11 +71,12 @@ def record_intake(path, medication, scheduled_time, status, source='button', now
         if previous and previous.get('status') == 'Taken':
             return (previous, False)
         if previous and previous.get('interrupted'):
-            raise ValueError('This event was interrupted. Start a new independent demo instead of confirming it.')
+            raise ValueError('This event was interrupted. End the paused help session before starting another check.')
         if previous and previous.get('status') == status and (previous.get('reason') == reason):
             return (previous, False)
         event = _event(medication, scheduled_time, status, source, reason, moment, previous)
         if status == 'Pending' and (not previous or previous.get('status') == 'Unconfirmed'):
+            event['repeat_after_seconds'] = _seconds(repeat_seconds) if repeat_seconds is not None else _seconds(timeout_seconds) / 2
             event['simulated_elapsed_minutes'] = 0
             event.pop('repeat_reminder_at', None)
             event['started_at'] = moment.isoformat(timespec='seconds')
@@ -114,6 +117,25 @@ def record_recovery(path, scheduled_time, reason, now=None):
             error = {'at': moment.isoformat(timespec='seconds'), 'reason': reason}
             event['last_error'] = error
             event['recovery_history'] = (list(event.get('recovery_history', [])) + [error])[-100:]
+            changed = True
+        if changed:
+            atomic_json(path, store)
+
+
+def finish_interrupted_session(path, scheduled_time, now=None):
+    """End a paused interaction without deleting its history or claiming intake."""
+    moment = _moment(now)
+    with _LOCK:
+        store = _load(path)
+        changed = False
+        for event in store['events'].values():
+            if event.get('date') != moment.date().isoformat() or event.get('scheduled_time') != scheduled_time or not event.get('interrupted') or event.get('status') == 'Taken':
+                continue
+            stamp = moment.isoformat(timespec='seconds')
+            event.update(interrupted=False, status='Unconfirmed', source='user',
+                         reason='user_ended_interrupted_session', updated_at=stamp)
+            event.setdefault('history', []).append({'at': stamp, 'status': 'Unconfirmed',
+                'source': 'user', 'reason': 'user_ended_interrupted_session'})
             changed = True
         if changed:
             atomic_json(path, store)
