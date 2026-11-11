@@ -133,3 +133,7 @@ Before presentation, test the actual camera/microphone, model connection, audio 
 ## 9. GitHub publishing
 
 Upload this prepared folder only after review. Never commit `config.local.json`, `mail.local.json`, `.env` files, runtime records, photos/recordings, backups or Notebook outputs containing private information. `.gitignore` excludes standard local paths; it cannot remove secrets already committed in history. GitHub stores source code; public access to a running app requires separate deployment.
+
+## VQA + TTS comparison baseline
+
+A separate, simple label reader is available in [baselines/vqa_tts](baselines/vqa_tts/README.md). Open [VQA_TTS_Baseline.ipynb](baselines/vqa_tts/VQA_TTS_Baseline.ipynb), install its dependencies and enter an authorized HKBU API key in its configuration cell. It displays and reads the visible medication name and strength without a medication list, automatic matching or health conversation. Participants compare with a separately supplied reference list and confirm their selection. Local task time and click records are excluded from Git. Restore the API placeholder and clear outputs before sharing an edited Notebook. The full website and main Notebook remain unchanged.

@@ -1,0 +1,6 @@
+anywidget>=0.9,<1
+ipywidgets>=8,<9
+Pillow>=10,<13
+gTTS>=2.5,<3
+requests>=2.31,<3
+notebook>=7,<8

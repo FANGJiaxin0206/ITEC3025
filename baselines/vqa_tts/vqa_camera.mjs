@@ -1,0 +1,26 @@
+function render({model,el}) {
+ el.innerHTML=`<h2>VQA + TTS label reader</h2><p>Read the label and compare it with the reference medication list provided for this task.</p><div><button data-a="open">Open camera / Retake</button><button data-a="capture" disabled>Take photo and read</button><button data-a="close">Close camera</button><label class="upload">Choose an image<input type="file" accept="image/*" hidden></label></div><p data-r="camera" role="status"></p><video autoplay muted playsinline hidden></video><img alt="Submitted label" hidden><h3>Medication name and strength</h3><p data-r="summary" style="font-size:24px"></p><p data-r="text" hidden></p><p data-r="status" role="status"></p><audio controls hidden></audio><div><button data-a="replay" disabled>Read label again</button><button data-a="confirm" disabled>I selected this box — finish task</button><button data-a="cancel">Cancel task</button></div><p>This is a classroom task. No medication is actually taken. The reader does not decide whether the package matches your list.</p>`;
+ const q=s=>el.querySelector(s),btn=a=>q(`[data-a="${a}"]`),video=q('video'),audio=q('audio'),image=q('img');
+ let stream=null,opening=false,generation=0,disposed=false,task=null,start=null,clicks=[],url=null;
+ const close=()=>{generation++;opening=false;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;video.hidden=true;btn('capture').disabled=true;};
+ function click(action){if(task)clicks.push({action,at:new Date().toISOString(),client_elapsed_ms:Math.round(performance.now()-start)});}
+ function send(action,extra={}){model.set('request',{action,...extra,task_id:task,clicks:[...clicks],client_elapsed_ms:task?Math.round(performance.now()-start):null,nonce:crypto.randomUUID()});model.save_changes();}
+ function begin(){if(!task){task=crypto.randomUUID();start=performance.now();clicks=[];}}
+ function stopAudio(){audio.pause();}
+ async function open(){click('open_camera');stopAudio();close();const gen=generation;opening=true;q('[data-r="camera"]').textContent='Opening camera…';try{const next=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720}},audio:false});if(disposed||gen!==generation){next.getTracks().forEach(t=>t.stop());return;}stream=next;video.srcObject=stream;video.hidden=false;await video.play();if(disposed||gen!==generation)return;btn('capture').disabled=false;q('[data-r="camera"]').textContent='Keep the complete label in view.';}catch(e){q('[data-r="camera"]').textContent='Camera unavailable. Check browser permission or choose an image.';}finally{if(gen===generation)opening=false;}}
+ async function submit(data){begin();click('submit_photo');stopAudio();image.src=data;image.hidden=false;send('photo',{photo:data});}
+ btn('open').onclick=open;
+ btn('close').onclick=()=>{click('close_camera');close();q('[data-r="camera"]').textContent='Camera off.';};
+ btn('capture').onclick=async()=>{if(!stream||!video.videoWidth)return;const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);const data=canvas.toDataURL('image/jpeg',.9);close();await submit(data);};
+ q('input').onchange=async e=>{const file=e.target.files[0];if(!file)return;close();const reader=new FileReader();reader.onload=()=>submit(reader.result);reader.readAsDataURL(file);e.target.value='';};
+ btn('replay').onclick=()=>{click('replay');audio.currentTime=0;audio.play().catch(()=>q('[data-r="status"]').textContent='Use the audio play control to hear the label.');};
+ audio.onplay=()=>click('audio_play');audio.onerror=()=>{q('[data-r="status"]').textContent='Audio playback failed. The label text remains available; submit another photo to regenerate audio.';};
+ btn('confirm').onclick=()=>{click('confirm_selection');close();stopAudio();send('finish');task=null;start=null;clicks=[];};
+ btn('cancel').onclick=()=>{click('cancel');close();stopAudio();send('cancel');task=null;start=null;clicks=[];};
+ function update(){q('[data-r="text"]').textContent=model.get('label_text');q('[data-r="summary"]').textContent=model.get('summary_text');q('[data-r="status"]').textContent=model.get('status');const busy=model.get('busy');btn('open').disabled=busy;btn('capture').disabled=busy||!stream;q('input').disabled=busy;btn('confirm').disabled=busy||!model.get('can_finish');btn('replay').disabled=busy||!model.get('audio_data');}
+ function sound(){stopAudio();audio.removeAttribute('src');const data=model.get('audio_data');audio.hidden=!data;if(data){audio.src='data:audio/mpeg;base64,'+data;audio.play().catch(()=>{});}update();}
+ model.on('change:label_text change:summary_text change:status change:busy change:can_finish',update);model.on('change:audio_data',sound);
+ const hidden=()=>{if(document.hidden){close();stopAudio();}};document.addEventListener('visibilitychange',hidden);window.addEventListener('pagehide',close);update();
+ return()=>{disposed=true;close();stopAudio();model.off('change:label_text change:summary_text change:status change:busy change:can_finish',update);model.off('change:audio_data',sound);document.removeEventListener('visibilitychange',hidden);window.removeEventListener('pagehide',close);};
+}
+export default {render};
