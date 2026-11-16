@@ -43,7 +43,7 @@ When two medications share a time, selecting one card restricts photo matching t
 
 `shared_storage.py` prepares `data/personal_medications.json`, `data/settings.json` and `data/intake_records.json`. The website and Notebook use these same paths. Regular legacy browser logs are merged once, deduplicating event IDs and preserving explicit Taken reports over unconfirmed records. Original files and backups are retained. Legacy test-run files are not inserted into daily history. A migration report records skipped malformed files.
 
-`storage_lock.py` uses a reentrant thread lock and a macOS/Linux file lock shared by the Notebook and web processes. Read-modify-write event transactions and atomic JSON writes use this lock. Reminder checks share the controller lock with web actions. Tests verify that concurrent processes do not lose each other's events.
+`storage_lock.py` uses a reentrant thread lock and a cross-platform filelock lock shared by the Notebook and web processes. Native locking is selected by filelock for Windows or Unix. Read-modify-write event transactions and atomic JSON writes use this lock. Reminder checks share the controller lock with web actions. Tests verify that concurrent processes do not lose each other's events.
 
 On each web refresh, medication and setting changes made through the Notebook are reloaded. A changed list invalidates stale verification. The Notebook dashboard reloads external settings; rerun/refresh its form after external list edits.
 

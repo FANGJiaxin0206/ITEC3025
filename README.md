@@ -4,7 +4,7 @@ MediConfirm is an ITEC3025 project for older adults with low vision. It checks a
 
 ## 1. Install
 
-Python 3.10 or newer is required. macOS/Linux is the supported environment because the shared JSON store uses a Unix file lock. Windows has not been validated; use WSL if needed. Anaconda is supported.
+Python 3.10 or newer is required. The shared JSON lock uses filelock with platform-specific backends for Windows, macOS and Linux. Anaconda is supported. Windows hardware/browser execution has not been validated here; this change removes the Unix-only fcntl import, not every possible environment-specific issue.
 
 ```bash
 cd mediconfirm_v2
@@ -137,3 +137,13 @@ Upload this prepared folder only after review. Never commit `config.local.json`,
 ## VQA + TTS comparison baseline
 
 A separate, simple label reader is available in [baselines/vqa_tts](baselines/vqa_tts/README.md). Open [VQA_TTS_Baseline.ipynb](baselines/vqa_tts/VQA_TTS_Baseline.ipynb), install its dependencies and enter an authorized HKBU API key in its configuration cell. It displays and reads the visible medication name and strength without a medication list, automatic matching or health conversation. Participants compare with a separately supplied reference list and confirm their selection. Local task time and click records are excluded from Git. Restore the API placeholder and clear outputs before sharing an edited Notebook. The full website and main Notebook remain unchanged.
+
+## Updating an older Windows checkout
+
+If startup fails with `ModuleNotFoundError: No module named 'fcntl'`, the old source imports a Unix-only module. Install the updated source and dependencies in the same environment used by Jupyter:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Then restart the Jupyter kernel and rerun cells. Do not try to pip-install fcntl, and do not remove locking: the website and Notebook can write the same JSON records concurrently. The VQA+TTS baseline does not import the main application's storage lock.

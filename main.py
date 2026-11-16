@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent
 
 
 def check_setup():
-    modules = ('notebook', 'anywidget', 'ipywidgets', 'flask', 'requests', 'PIL',
+    modules = ('filelock', 'notebook', 'anywidget', 'ipywidgets', 'flask', 'requests', 'PIL',
                'gtts', 'whisper', 'numpy', 'imageio_ffmpeg')
     missing = [name for name in modules if importlib.util.find_spec(name) is None]
     files = ('MediConfirm.ipynb', 'run_mobile.py', 'src/mediconfirm/simple_ui.py')

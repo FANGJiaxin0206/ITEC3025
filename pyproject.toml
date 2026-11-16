@@ -8,6 +8,7 @@ version = "2.0.0"
 description = "A desktop web and notebook medication package verification assistant"
 requires-python = ">=3.10"
 dependencies = [
+  "filelock>=3.17,<4",
   "Flask>=3.1,<4",
   "anywidget>=0.9,<1",
   "ipywidgets>=8,<9",
