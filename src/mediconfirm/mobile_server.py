@@ -48,11 +48,37 @@ class PhoneSession:
         self.lock = threading.Lock()
         self.manual_time = False
         self.audio_clips = {}
+        self.audio_lock = threading.Lock()
         self.audio_scope = 'home'
         self.audio_target = 'reminder'
-        original_speak = self.app._speak
+
+        def generate_web_audio(key, pending_id, text):
+            note = ''
+            data = ''
+            try:
+                from gtts import gTTS
+                audio = io.BytesIO()
+                gTTS(text=text, lang='en', timeout=15).write_to_fp(audio)
+                data = base64.b64encode(audio.getvalue()).decode('ascii')
+            except Exception:
+                note = 'Speech could not be generated. The written response is still available. Select Listen to retry.'
+            with self.audio_lock:
+                clip = self.audio_clips.get(key)
+                if not clip or clip['id'] != pending_id:
+                    return
+                # A new id makes the browser replace the temporary
+                # "preparing" control with the completed audio control.
+                clip.update(id=secrets.token_hex(12), data=data, note=note,
+                    status='ready' if data else 'failed')
+
         def speak_for_web(text):
-            original_speak(text)
+            text = str(text or '').strip()
+            if not text:
+                return
+            self.app._last_spoken_text = text
+            self.app.can_replay = True
+            self.app.audio_data = ''
+            self.app.audio_note = ''
             scope, target = self.audio_scope, self.audio_target
             if self.app.flow_page == 'help' and scope != 'home':
                 scope, target = 'check', 'help'
@@ -61,18 +87,28 @@ class PhoneSession:
             elif scope == 'check' and self.app.flow_page == 'done':
                 target = 'completion'
             key = scope + ':' + target
-            self.audio_clips.pop(key, None)
-            self.audio_clips[key] = dict(id=secrets.token_hex(12), scope=scope, target=target,
-                text=self.app._last_spoken_text, data=self.app.audio_data, note=self.app.audio_note.replace('Select Replay', 'Select Listen'))
-            while len(self.audio_clips) > 12:
-                self.audio_clips.pop(next(iter(self.audio_clips)))
+            pending_id = secrets.token_hex(12)
+            if not self.app.voice:
+                with self.audio_lock:
+                    self.audio_clips[key] = dict(id=pending_id, scope=scope, target=target,
+                        text=text, data='', note='Speech is disabled.', status='disabled')
+                return
+            with self.audio_lock:
+                self.audio_clips.pop(key, None)
+                self.audio_clips[key] = dict(id=pending_id, scope=scope, target=target,
+                    text=text, data='', note='Preparing spoken feedback…', status='preparing')
+                while len(self.audio_clips) > 12:
+                    self.audio_clips.pop(next(iter(self.audio_clips)))
+            threading.Thread(target=generate_web_audio, args=(key, pending_id, text),
+                daemon=True, name='mediconfirm-tts').start()
         self.app._speak = speak_for_web
         self.select_automatic_time()
 
     def clear_check_audio(self):
-        for key in list(self.audio_clips):
-            if key.startswith('check:'):
-                self.audio_clips.pop(key)
+        with self.audio_lock:
+            for key in list(self.audio_clips):
+                if key.startswith('check:'):
+                    self.audio_clips.pop(key)
 
     def select_automatic_time(self):
         if self.manual_time or self.app._simulation or self.app._blocked:
@@ -152,7 +188,11 @@ class PhoneSession:
         past = [t for t in times if t <= now]
         result['current_plan_time'] = past[-1] if past else (times[0] if times else '')
         result['current_plan_kind'] = 'current' if past else 'upcoming'
-        result['audio_clips'] = [{k:v for k,v in clip.items() if k != 'data'} for clip in self.audio_clips.values()]
+        with self.audio_lock:
+            result['audio_clips'] = [
+                {k:v for k,v in clip.items() if k != 'data'}
+                for clip in self.audio_clips.values()
+            ]
         for clip in result['audio_clips']:
             clip['url'] = '/api/audio/' + clip['id']
         result['schedule_mode'] = 'selected_event' if self.manual_time else 'automatic'
@@ -260,9 +300,12 @@ def create_app(root, access_token=None, config=None, start_scheduler=False):
                 phone.audio_scope, phone.audio_target = 'home', 'plan:' + time
                 a._speak(' '.join(lines))
             elif name=='replay_clip':
-                clip = next((c for c in phone.audio_clips.values() if c['id'] == payload.get('clip_id')), None)
+                with phone.audio_lock:
+                    clip = next((dict(c) for c in phone.audio_clips.values() if c['id'] == payload.get('clip_id')), None)
                 if not clip:
                     raise ValueError('This response is no longer available.')
+                if clip.get('status') == 'preparing':
+                    raise ValueError('The spoken response is still being prepared.')
                 phone.audio_scope, phone.audio_target = clip['scope'], clip['target']
                 a._speak(clip['text'])
             elif name=='flow':
@@ -330,8 +373,9 @@ def create_app(root, access_token=None, config=None, start_scheduler=False):
             elif name=='replay':a._on_replay({'new':1})
             elif name=='clear_chat':
                 a._on_reset({'new':1})
-                for key in list(phone.audio_clips):
-                    if key.startswith('chat:'):phone.audio_clips.pop(key)
+                with phone.audio_lock:
+                    for key in list(phone.audio_clips):
+                        if key.startswith('chat:'):phone.audio_clips.pop(key)
             elif name=='settings':
                 phone.save_settings(payload.get('settings'))
             elif name=='start_reminder':
@@ -387,7 +431,8 @@ def create_app(root, access_token=None, config=None, start_scheduler=False):
     def claim_audio():
         phone=current();payload=request.get_json(silent=True) or {};clip_id=payload.get('clip_id')
         with phone.lock:
-            valid=any(c['id']==clip_id for c in phone.audio_clips.values())
+            with phone.audio_lock:
+                valid=any(c['id']==clip_id for c in phone.audio_clips.values())
             allowed=valid and clip_id not in phone.autoplay_claimed
             if allowed:phone.autoplay_claimed.add(clip_id)
             return jsonify(allowed=allowed)
@@ -404,7 +449,7 @@ def create_app(root, access_token=None, config=None, start_scheduler=False):
     @app.get('/api/audio/<clip_id>')
     def audio(clip_id):
         phone=current()
-        with phone.lock:
+        with phone.audio_lock:
             clip=next((c for c in phone.audio_clips.values() if c['id']==clip_id),None)
             if not clip or not clip['data']:
                 return jsonify(error='Audio is unavailable. Select Listen to retry.'),404

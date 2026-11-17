@@ -23,6 +23,19 @@ class AudioUXTests(unittest.TestCase):
   result=self.action('chat',text='Hello').get_json()
   clip=result['audio_clips'][-1];message=result['dialogue_messages'][-1]
   self.assertEqual(clip['scope'],'chat');self.assertEqual(clip['target'],message['message_id'])
+ def test_web_returns_text_while_audio_is_still_preparing(self):
+  class DeferredThread:
+   started=False
+   def __init__(self,*args,**kwargs):pass
+   def start(self):DeferredThread.started=True
+  self.phone.app.voice=True
+  with patch('mediconfirm.mobile_server.threading.Thread',DeferredThread):
+   self.phone.audio_scope='home';self.phone.audio_target='plan:08:00'
+   self.phone.app._speak('Your saved plan for 08:00 is ready.')
+  clip=self.phone.state()['audio_clips'][-1]
+  self.assertTrue(DeferredThread.started)
+  self.assertEqual(clip['status'],'preparing')
+  self.assertIn('Your saved plan',clip['text'])
  def test_retaking_clears_old_result_audio(self):
   self.photo();self.assertTrue(any(c['scope']=='check' for c in self.phone.state()['audio_clips']))
   result=self.action('prepare_photo').get_json()

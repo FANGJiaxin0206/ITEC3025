@@ -509,9 +509,12 @@ function syncAudio(autoplay) {
       slot.replaceChildren();
       const listen = document.createElement('button');
       const isReminder = clip.scope === 'home' && clip.target === 'reminder';
+      const preparing = clip.status === 'preparing';
       listen.className = isReminder ? 'reminder-listen' : 'quiet';
-      listen.textContent = 'Listen';
+      listen.textContent = preparing ? 'Preparing audio…' : 'Listen';
+      listen.disabled = preparing;
       listen.addEventListener('click', async () => {
+        if (preparing) return;
         if (clip.note || failedAudio.has(clip.id)) {
           await act('replay_clip', { clip_id: clip.id });
           return;
@@ -531,7 +534,9 @@ function syncAudio(autoplay) {
       }
     }
     player.restore(clip, slot);
-    if (unseen && clip.scope === tab && !clip.note) latest = { clip, slot };
+    if (unseen && clip.scope === tab && clip.status !== 'preparing' && !clip.note) {
+      latest = { clip, slot };
+    }
   }
   if (latest && latest.clip.target !== 'reminder' && autoplay &&
       document.visibilityState !== 'hidden') {
