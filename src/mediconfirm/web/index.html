@@ -1,19 +1,262 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#143d36"><title>MediConfirm</title><link rel="stylesheet" href="/assets/style.css"></head><body>
-<header><div class="brand"><span class="brand-mark">M</span><div><strong>MediConfirm</strong><small>Your medication companion</small></div></div></header>
-<main><p id="clock" class="clock" aria-label="Current Hong Kong time"></p><div id="notice" role="status" aria-live="polite"></div><div id="busy" hidden role="status">Please wait…</div>
-<section data-tab="home"><div class="intro"><p class="eyebrow">TODAY’S PLAN</p><h1>Your medication<br>companion.</h1><p>Choose a medication from your plan to check its package.</p></div><p id="liveReminder" role="status" aria-live="polite"></p><div id="reminderAudio" class="response-audio"></div><div id="dailyPlan"></div><button data-go="chat" class="secondary">Talk with AI</button></section>
-<section data-tab="me" hidden><p class="eyebrow">YOUR INFORMATION</p><h1>Me</h1><div class="me-grid"><button data-go="list">My medication list<span>Add medications and choose intake times</span></button><button data-go="settings">Reminder settings<span>Set reminder and notification delays</span></button><button data-go="history">History records<span>View intake statuses and updates</span></button><button data-go="family">Family notifications<span>Save an email and view notification records</span></button></div></section>
-<section data-tab="check" hidden><button data-go="home" class="quiet">← Back to Home</button><div class="intro"><p class="eyebrow">ONE PACKAGE AT A TIME</p><h1>Let’s check<br>your medication.</h1><p>Take a clear photo of the name and strength.</p></div>
-<div class="card"><h2>Your selected medication</h2><p id="selectedMedication"></p></div><div class="card"><img id="preview" alt="Selected medication package" hidden><p id="photoHint">Keep the whole label in view.</p><button id="openCamera" class="primary file-button">Open camera</button><div id="cameraPanel" hidden><video id="cameraVideo" autoplay muted playsinline aria-label="Live camera preview"></video><div class="row"><button id="capturePhoto" class="primary" disabled>Take photo and check</button><button id="closeCamera">Close camera</button></div></div><p id="cameraStatus" role="status"></p><label class="button secondary file-button">Choose an image<input id="uploadPhoto" type="file" accept="image/*"></label></div>
-<div class="card" id="resultCard" hidden><span id="resultBadge" class="badge">Result</span><p id="result" class="large"></p><div id="resultAudio" class="response-audio"></div><button id="uses">What is this used for?</button><button data-flow="ask-current" data-tab-go="chat">Ask about this package</button><div id="confirmation" hidden><hr><h2>Have you taken it yet?</h2><div class="stack"><button id="taken" class="primary">I have taken it</button><button id="pending">Not yet</button></div><details><summary>Confirm with reviewed text</summary><textarea id="report" placeholder="I have taken it. / I have not taken it."></textarea><button id="submitReport">Submit my status</button></details></div><p id="confirmStatus"></p><div id="confirmationAudio" class="response-audio"></div></div>
-<div class="card" id="completionCard" hidden><h2>Your record</h2><p id="completion"></p><div id="completionAudio" class="response-audio"></div><button data-go="home">Return to Home</button></div>
-<div class="card alert" id="helpCard" hidden><h2>Medication check paused</h2><p id="help"></p><div id="helpAudio" class="response-audio"></div><button data-flow="end">End this session</button></div>
-</section>
-<section data-tab="chat" hidden><p class="eyebrow">HERE TO LISTEN</p><h1>How are you<br>feeling today?</h1><p>You can talk with me, or go straight to a package check.</p><p id="context" class="context"></p><div id="messages" aria-live="polite"></div><div class="card"><label for="draft">Your message</label><textarea id="draft" placeholder="Type a message, or record and review it…"></textarea><div class="row"><button id="record">Record</button><button id="stopRecord" disabled>Stop</button><button id="send" class="primary">Send</button></div><label class="file-link">Upload a short recording<input id="audioFile" type="file" accept="audio/*"></label><p id="speechStatus" class="small"></p><button id="clearChat" class="quiet">Clear conversation</button></div><button data-flow="resume" data-tab-go="check">Return to medication check</button></section>
-<section data-tab="list" hidden><button data-go="me" class="quiet">← Back to Me</button><p class="eyebrow">YOUR SAVED PLAN</p><h1>Medication list</h1><p>Add medications and choose each intake time using the hour and minute wheels. Your medication list is saved on this computer.</p><div id="medRows"></div><button id="addMed">+ Add medication</button><button id="saveList" class="primary">Save medication list</button></section>
-<section data-tab="settings" hidden><button data-go="me" class="quiet">← Back to Me</button><p class="eyebrow">YOUR PREFERENCES</p><h1>Reminder settings</h1><div class="card stack"><p>Schedule timezone: <strong>Hong Kong (UTC+8)</strong>. The computer clock supplies the current time.</p><label class="check-label"><input id="autoReminders" type="checkbox"> Enable reminders at the saved medication times</label><label for="repeatSeconds">Ask again after (seconds)</label><input id="repeatSeconds" type="number" min="1" max="86399" step="1" value="300"><label for="timeoutSeconds">Notify family if unconfirmed after (seconds)</label><input id="timeoutSeconds" type="number" min="1" max="86400" step="1" value="600"><p class="small">Defaults: ask again after 300 seconds (5 minutes); mark Unconfirmed and create a family notification after 600 seconds (10 minutes). You can change both values. The second reminder must be earlier than the notification timeout. Changes apply to new events.</p><button id="saveSettings" class="primary">Save settings</button><p id="settingsStatus" role="status"></p><p class="small">Keep the application running and the computer awake for automatic reminders. Turning reminders on does not recreate earlier missed schedules.</p></div></section>
-<section data-tab="history" hidden><button data-go="me" class="quiet">← Back to Me</button><p class="eyebrow">SAVED ON THIS COMPUTER</p><h1>History records</h1><p>These are self-reported intake records. Unconfirmed means no confirmation was received; it does not prove a missed dose.</p><label for="historyFilter">Show records</label><select id="historyFilter"><option value="all">All statuses</option><option>Pending</option><option>Taken</option><option>Unconfirmed</option></select><div id="historyRecords"></div><details class="card"><summary>Evaluation data</summary><p>Task duration and button-click counts are saved locally. A click-rate definition has not been selected.</p><a href="/api/evaluation.csv">Export evaluation CSV</a></details></section>
-<section data-tab="family" hidden><button data-go="me" class="quiet">← Back to Me</button><p class="eyebrow">STAY CONNECTED</p><h1>Family notifications</h1><div class="card stack"><label for="caregiverEmail">Family / caregiver email</label><input id="caregiverEmail" type="email" placeholder="caregiver@example.com"><p id="mailStatus" class="small"></p><label class="check-label"><input id="realEmailEnabled" type="checkbox"> Send real email alerts to this address</label><button id="sendTestEmail" disabled>Send test email</button><button id="saveFamily" class="primary">Save email address</button><p id="familyStatus" role="status"></p><p class="small">Configure the sender once on this computer, save a recipient, then enable real email alerts. Submitted means accepted by the email provider; inbox delivery is not guaranteed.</p></div><h2>Notification records</h2><div id="notificationRecords"></div></section>
-<aside id="sourceCard" class="card" hidden><h2>Verified label source</h2><p id="sourceStatus" class="small"></p><div id="sources"></div><details><summary>Read the source excerpt</summary><p id="excerpt"></p></details></aside>
-<div id="audioParking" hidden><audio id="audio" controls></audio></div><div class="footer-controls" id="footerControls" hidden><button id="cancel" class="quiet">Cancel session</button></div>
-</main><nav aria-label="Main navigation"><button data-nav="home" class="active">Home</button><button data-nav="chat">Chat</button><button data-nav="me">Me</button></nav><script type="module" src="/assets/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6f2">
+  <title>MediConfirm</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <button class="brand-button" data-go="home" aria-label="MediConfirm home">
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span class="brand-copy"><strong>MediConfirm</strong><small>Your medication companion</small></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <div id="notice" role="status" aria-live="polite"></div>
+    <div id="busy" hidden role="status">Please wait…</div>
+
+    <section class="page home-page" data-tab="home">
+      <div class="intro">
+        <p class="eyebrow">TODAY’S PLAN</p>
+        <h1>Hi, here is your medication companion.</h1>
+        <p>Choose a medication from your plan to check its package.</p>
+      </div>
+      <section id="liveReminder" class="live-reminder" hidden aria-live="polite">
+        <div id="liveReminderText" class="reminder-card"></div>
+        <div id="reminderAudio" class="response-audio reminder-audio"></div>
+      </section>
+      <div id="dailyPlan" class="plan-grid"></div>
+      <button class="primary talk-button" data-go="chat" aria-label="Talk with AI" title="Talk with AI">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4.5h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 3v-5H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"/><path d="M8 9h8M8 12.5h5"/></svg>
+      </button>
+    </section>
+
+    <section class="page check-page" data-tab="check" hidden>
+      <section class="card selected-card">
+        <h2>Your selected medication</h2>
+        <p id="selectedMedication"></p>
+      </section>
+      <section class="card camera-card">
+        <p id="photoHint">Keep the whole label in view.</p>
+        <img id="preview" alt="Selected medication package" hidden>
+        <div id="cameraPanel" class="camera-panel" hidden>
+          <video id="cameraVideo" autoplay muted playsinline aria-label="Live camera preview"></video>
+        </div>
+        <p id="cameraStatus" class="small" role="status">Camera is off.</p>
+        <div class="camera-actions">
+          <button id="openCamera" class="primary">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7.5h3l1.5-2h7l1.5 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Open camera
+          </button>
+          <button id="capturePhoto" class="primary" disabled hidden>Take photo</button>
+          <button id="closeCamera" class="secondary" hidden>Close</button>
+          <button id="chooseImage" type="button" class="secondary icon-button image-upload-button"
+                  aria-label="Choose an image" title="Choose an image">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l10.61-10.6a4 4 0 0 1 5.66 5.65L9.4 17.43a2 2 0 0 1-2.83-2.83l9.19-9.19"/></svg>
+          </button>
+          <input id="uploadPhoto" class="file-input" type="file" accept="image/*" aria-label="Choose an image">
+        </div>
+        <div class="footer-controls" id="footerControls" hidden>
+          <button id="cancel" class="secondary cancel-button">Cancel session</button>
+        </div>
+      </section>
+      <section class="card result-card" id="resultCard" hidden>
+        <span id="resultBadge" class="badge">Result</span>
+        <p id="result" class="large"></p>
+        <div id="resultAudio" class="response-audio"></div>
+        <div class="action-stack">
+          <button id="uses" class="secondary">What is this used for?</button>
+          <button class="secondary" data-flow="ask-current" data-tab-go="chat">Ask about this package</button>
+        </div>
+        <div id="confirmation" class="confirmation-block" hidden>
+          <hr>
+          <h2>Have you taken it yet?</h2>
+          <div class="action-stack">
+            <button id="taken" class="primary">I have taken it</button>
+            <button id="pending" class="secondary">Not yet</button>
+          </div>
+          <details>
+            <summary>Confirm with reviewed text</summary>
+            <textarea id="report" placeholder="I have taken it. / I have not taken it."></textarea>
+            <button id="submitReport" class="secondary">Submit my status</button>
+          </details>
+        </div>
+        <p id="confirmStatus" role="status"></p>
+        <div id="confirmationAudio" class="response-audio"></div>
+      </section>
+      <section class="card completion-card" id="completionCard" hidden>
+        <h2>Your record</h2>
+        <p id="completion"></p>
+        <div id="completionAudio" class="response-audio"></div>
+        <button class="primary" data-go="home">Return to Home</button>
+      </section>
+      <section class="card alert-card" id="helpCard" hidden>
+        <h2>Medication check paused</h2>
+        <p id="help"></p>
+        <div id="helpAudio" class="response-audio"></div>
+        <button class="primary" data-flow="end">End this session</button>
+      </section>
+    </section>
+
+    <section class="page chat-page" data-tab="chat" hidden>
+      <div class="intro">
+        <p class="eyebrow">HERE TO LISTEN</p>
+        <h1>How are you feeling today?</h1>
+      </div>
+      <p id="context" class="context" hidden></p>
+      <div id="messages" class="messages" aria-live="polite"></div>
+      <section class="card composer-card">
+        <label for="draft">Your message</label>
+        <textarea id="draft" placeholder="Type a message, or record and review it…"></textarea>
+        <p id="speechStatus" class="small" role="status"></p>
+        <div class="chat-actions">
+          <button id="uploadAudio" type="button" class="icon-button upload-audio-button"
+                  aria-label="Upload a voice recording" title="Upload a voice recording">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l10.61-10.6a4 4 0 0 1 5.66 5.65L9.4 17.43a2 2 0 0 1-2.83-2.83l9.19-9.19"/></svg>
+          </button>
+          <input id="audioFile" class="file-input" type="file" accept="audio/*" tabindex="-1" aria-hidden="true">
+          <button id="record" class="secondary icon-button" aria-label="Start recording" title="Start recording">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-4 0h8"/></svg>
+          </button>
+          <button id="stopRecord" class="secondary icon-button" aria-label="Stop recording" title="Stop recording" disabled hidden>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <button id="send" class="primary icon-button" aria-label="Send message" title="Send message" disabled>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2-8z"/><path d="m11 13 5-5"/></svg>
+          </button>
+        </div>
+        <button id="clearChat" class="quiet">Clear conversation</button>
+      </section>
+      <button class="quiet return-button chat-return" data-flow="resume" data-tab-go="check">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
+        <span>Return to Medication check</span>
+      </button>
+    </section>
+
+    <section class="page me-page" data-tab="me" hidden>
+      <p class="eyebrow">YOUR INFORMATION</p>
+      <h1>Me</h1>
+      <div class="me-grid">
+        <button data-go="list" class="me-tile"><strong>My medication list</strong><span>Add medications and choose intake times</span></button>
+        <button data-go="settings" class="me-tile"><strong>Reminder settings</strong><span>Set reminder and notification delays</span></button>
+        <button data-go="history" class="me-tile"><strong>History records</strong><span>View intake statuses and updates</span></button>
+        <button data-go="family" class="me-tile"><strong>Family notifications</strong><span>Save an email and view notification records</span></button>
+      </div>
+    </section>
+
+    <section class="page subpage list-page" data-tab="list" hidden>
+      <button data-go="me" class="quiet return-button">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
+        <span>Back to Me</span>
+      </button>
+      <p class="eyebrow">YOUR SAVED PLAN</p>
+      <h1>Medication list</h1>
+      <p>Add medications and choose each intake time. This list is saved on this computer.</p>
+      <div id="medRows"></div>
+      <div class="action-row">
+        <button id="addMed" class="secondary">+ Add medication</button>
+        <button id="saveList" class="primary">Save</button>
+      </div>
+      <p id="listStatus" role="status"></p>
+    </section>
+
+    <section class="page subpage settings-page" data-tab="settings" hidden>
+      <button data-go="me" class="quiet return-button">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
+        <span>Back to Me</span>
+      </button>
+      <p class="eyebrow">YOUR PREFERENCES</p>
+      <h1>Reminder settings</h1>
+      <section class="card stack">
+        <p>Schedule timezone: <strong>Hong Kong (UTC+8)</strong>. The computer clock supplies the current time.</p>
+        <label class="check-label"><input id="autoReminders" type="checkbox"> Enable reminders at the saved medication times</label>
+        <label for="repeatSeconds">Ask again after (seconds)</label>
+        <input id="repeatSeconds" type="number" min="1" max="86399" step="1" value="300">
+        <label for="timeoutSeconds">Notify family if unconfirmed after (seconds)</label>
+        <input id="timeoutSeconds" type="number" min="1" max="86400" step="1" value="600">
+        <p class="small">The repeat reminder must be earlier than the notification timeout. Changes apply to new events.</p>
+        <button id="saveSettings" class="primary">Save</button>
+        <p id="settingsStatus" role="status"></p>
+        <p class="small">Keep the application running and the computer awake for automatic reminders.</p>
+      </section>
+    </section>
+
+    <section class="page subpage history-page" data-tab="history" hidden>
+      <button data-go="me" class="quiet return-button">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
+        <span>Back to Me</span>
+      </button>
+      <p class="eyebrow">SAVED ON THIS COMPUTER</p>
+      <h1>History records</h1>
+      <p>These are self-reported intake records. Unconfirmed does not prove a missed dose.</p>
+      <label for="historyFilter">Show records</label>
+      <select id="historyFilter">
+        <option value="all">All statuses</option>
+        <option value="Taken">Taken</option>
+        <option value="Pending">Pending</option>
+        <option value="Unconfirmed">Unconfirmed</option>
+      </select>
+      <div id="historyRecords"></div>
+      <details class="card">
+        <summary>Evaluation data</summary>
+        <p>Task duration and button-click counts are saved locally.</p>
+        <a href="/api/evaluation.csv">Export evaluation CSV</a>
+      </details>
+    </section>
+
+    <section class="page subpage family-page" data-tab="family" hidden>
+      <button data-go="me" class="quiet return-button">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
+        <span>Back to Me</span>
+      </button>
+      <p class="eyebrow">STAY CONNECTED</p>
+      <h1>Family notifications</h1>
+      <section class="card stack">
+        <label for="caregiverEmail">Family / caregiver email</label>
+        <input id="caregiverEmail" type="email" placeholder="caregiver@example.com">
+        <p id="mailStatus" class="small"></p>
+        <label class="check-label"><input id="realEmailEnabled" type="checkbox"> Send real email alerts to this address</label>
+        <div class="action-row">
+          <button id="sendTestEmail" class="secondary" disabled>Send test email</button>
+          <button id="saveFamily" class="primary">Save email address</button>
+        </div>
+        <p id="familyStatus" role="status"></p>
+        <p class="small">Configure the sender once on this computer, save a recipient, then enable real email alerts. Submitted means accepted by the email provider; inbox delivery is not guaranteed.</p>
+      </section>
+      <h2>Notification records</h2>
+      <div id="notificationRecords"></div>
+    </section>
+
+    <aside id="sourceCard" class="card source-card" hidden>
+      <h2>Verified label source</h2>
+      <p id="sourceStatus" class="small"></p>
+      <div id="sources"></div>
+      <details><summary>Read the source excerpt</summary><p id="excerpt"></p></details>
+    </aside>
+    <div id="audioParking" hidden><audio id="audio" controls></audio></div>
+  </main>
+
+  <footer class="app-footer"><p id="clock" aria-label="Current Hong Kong time"></p></footer>
+  <nav class="main-nav" aria-label="Main navigation">
+    <button data-nav="home">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+      <span>Home</span>
+    </button>
+    <button data-nav="chat">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H7l-4 2v-5.5A7.5 7.5 0 1 1 20 11.5Z"/></svg>
+      <span>Chat</span>
+    </button>
+    <button data-nav="me">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+      <span>Me</span>
+    </button>
+  </nav>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>
