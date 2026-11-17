@@ -1,0 +1,15 @@
+name: mediconfirm-baseline
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - tesseract
+  - pip
+  - notebook>=7,<8
+  - ipykernel
+  - pip:
+      - anywidget>=0.9,<1
+      - ipywidgets>=8,<9
+      - Pillow>=10,<13
+      - gTTS>=2.5,<3
+      - pytesseract>=0.3.13,<1

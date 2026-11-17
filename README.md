@@ -138,6 +138,10 @@ Upload this prepared folder only after review. Never commit `config.local.json`,
 
 A separate, simple label reader is available in [baselines/vqa_tts](baselines/vqa_tts/README.md). Open [VQA_TTS_Baseline.ipynb](baselines/vqa_tts/VQA_TTS_Baseline.ipynb), install its dependencies and enter an authorized HKBU API key in its configuration cell. It displays and reads the visible medication name and strength without a medication list, automatic matching or health conversation. Participants compare with a separately supplied reference list and confirm their selection. Local task time and click records are excluded from Git. Restore the API placeholder and clear outputs before sharing an edited Notebook. The full website and main Notebook remain unchanged.
 
+## OCR + TTS comparison baseline
+
+The standalone cross-platform OCR reader is in [baselines/ocr_tts](baselines/ocr_tts/README.md). Its recommended setup uses the included Conda environment so Windows, macOS and Linux receive both the Tesseract executable and the required Python packages. Open [OCR_TTS_Baseline.ipynb](baselines/ocr_tts/OCR_TTS_Baseline.ipynb) after setup. It extracts label text without an AI model or medication-list matching, displays the full OCR output, and reads only the conservatively extracted medication name and strength. It requires no API key. Local task records and Notebook checkpoints are excluded from Git.
+
 ## Updating an older Windows checkout
 
 If startup fails with `ModuleNotFoundError: No module named 'fcntl'`, the old source imports a Unix-only module. Install the updated source and dependencies in the same environment used by Jupyter:
