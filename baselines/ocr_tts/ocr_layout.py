@@ -3,7 +3,7 @@ import re
 
 STRENGTH = re.compile(r'(?<![A-Za-z0-9.])(\d+(?:\.\d+)?)\s*(mcg|mg|g|mL|units|%)(?![A-Za-z])', re.I)
 FORM = re.compile(r'\b(tablets?|capsules?|usp|film.coated|oral)\b', re.I)
-EXCLUDE = re.compile(r'\b(ndc|rx|only|each|contains?|take|store|warning|keep|manufactured|distributed|information|expiry|expires|lot|dosage|directions|www|http|safety|prescribing|count|contents?|net)\b', re.I)
+EXCLUDE = re.compile(r'\b(ndc|rx|only|each|contains?|equivalent|elemental|take|store|warning|keep|manufactured|distributed|information|expiry|expires|lot|dosage|directions|www|http|safety|prescribing|count|contents?|net)\b', re.I)
 
 
 def rows_from_data(data):

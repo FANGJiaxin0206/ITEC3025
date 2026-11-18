@@ -56,30 +56,52 @@ def extract_label(image):
     summary, field_status = layout_summary(selected_data)
     recovered_lines = []
     if field_status == 'fields_not_found':
-        # Local blue-channel OCR increases contrast for white lettering on warm backgrounds.
-        blue = ImageOps.autocontrast(color_image.getchannel('B')).resize(image.size, Image.Resampling.LANCZOS)
-        blue = blue.rotate(selected_angle, expand=True, fillcolor=255)
+        # Local colour-channel OCR increases contrast for white lettering on
+        # coloured strength bands. Work from the original pixels: enlarging the
+        # complete package first can blur short strings such as "5 mg".
+        channels = [ImageOps.autocontrast(color_image.getchannel(channel)).rotate(
+            selected_angle, expand=True, fillcolor=255) for channel in ('G', 'B')]
         rows = rows_from_data(selected_data)
         headings = sorted([r for r in rows if name_text(r['text'])], key=lambda r: r['height'], reverse=True)[:4]
         combined = {k: list(selected_data.get(k, [])) for k in ('text','left','top','width','height','conf')}
         for heading in headings:
             h = heading['height']
-            x = max(0, int(heading['left']-.3*h)); y = max(0, int(heading['bottom'] + .35*h))
-            box = (x, y, min(blue.width, int(heading['right']+1.5*h)), min(blue.height, int(heading['bottom']+2.2*h)))
-            crop = blue.crop(box)
-            crop = crop.resize((crop.width*3, crop.height*3), Image.Resampling.BICUBIC)
-            local = pytesseract.image_to_data(crop, lang='eng', config='--psm 6', output_type=pytesseract.Output.DICT, timeout=30)
-            for row in rows_from_data(local):
-                if not STRENGTH.search(row['text']):
-                    continue
-                # Keep the observed characters; never repair or supply an expected strength.
-                entry = dict(text=row['text'], left=row['left']/3+x, top=row['top']/3+y,
-                             width=(row['right']-row['left'])/3, height=row['height']/3, conf=row['conf'])
-                if any(abs(entry['top']-existing['top']) < row['height']*.6 and STRENGTH.search(existing['text']) for existing in rows):
-                    continue
-                for k,v in entry.items():combined[k].append(v)
-                rows.append(dict(row,top=entry['top'],text=entry['text']))
-                recovered_lines.append(row['text'])
+            # Medication layouts commonly place the strength one to three
+            # heading-heights below the name, after a dosage-form line.
+            box = (max(0, int((heading['left']-.3*h)/scale)),
+                   max(0, int((heading['bottom']+1.0*h)/scale)),
+                   min(channels[0].width, int((heading['right']+1.5*h)/scale)),
+                   min(channels[0].height, int((heading['bottom']+2.7*h)/scale)))
+            single_line = {}
+            observed = {}
+            for channel in channels:
+                crop = channel.crop(box).resize((1600, 300), Image.Resampling.BICUBIC)
+                for mode in (13, 6, 7, 11, 12):
+                    local_text = pytesseract.image_to_string(
+                        crop, lang='eng', config=f'--psm {mode}', timeout=30)
+                    for match in STRENGTH.finditer(local_text):
+                        value = f'{match.group(1)} {match.group(2)}'
+                        target = single_line if mode == 13 else observed
+                        target[value.lower()] = value
+            # PSM 13 treats the coloured band as one line and avoids nearby
+            # gradients turning a leading 5 into 9. Fall back to the other
+            # sparse-text modes only when PSM 13 returns no valid strength.
+            if len(single_line) == 1:
+                observed = single_line
+            if len(observed) != 1:
+                continue
+            value = next(iter(observed.values()))
+            entry = dict(text=value, left=heading['left'],
+                         top=heading['bottom']+1.5*h,
+                         width=max(h*2, heading['right']-heading['left']),
+                         height=h, conf=80)
+            if any(abs(entry['top']-existing['top']) < h*.6 and STRENGTH.search(existing['text']) for existing in rows):
+                continue
+            for key, field in entry.items():
+                combined[key].append(field)
+            rows.append(dict(entry, right=entry['left']+entry['width'],
+                             bottom=entry['top']+entry['height']))
+            recovered_lines.append(value)
         summary, field_status = layout_summary(combined)
     text = pytesseract.image_to_string(selected, lang='eng', config='--psm 11', timeout=30).strip()
     if recovered_lines:

@@ -28,5 +28,12 @@ class LayoutTests(unittest.TestCase):
     def test_unrelated_neighbor_column_is_not_used(self):
         summary,status=layout_summary(data_for([('Example Medicine',600,10,25),('50 mg',10,55,25)]))
         self.assertEqual(summary,'')
+    def test_equivalent_and_elemental_detail_strengths_are_not_package_fields(self):
+        summary,status=layout_summary(data_for([
+            ('Calcium Carbonate 500 mg',10,10,25),
+            ('elemental calcium 200 mg',10,200,18),
+            ('equivalent to 220 mg calcium salt',10,240,18)]))
+        self.assertEqual(summary,'Calcium Carbonate, 500 mg')
+        self.assertEqual(status,'fields_extracted')
 
 if __name__=='__main__':unittest.main()
