@@ -20,6 +20,9 @@ context.data={...base(),draft_text:'I feel tired'};vm.runInContext('render(data)
 context.data={...base(),flow_page:'done'};vm.runInContext('render(data);showTab("history");render(data)',context);assert.equal(tabs.find(t=>t.dataset.tab==='history').hidden,false);
 context.data={...base(),verification_status:'Uncertain'};vm.runInContext('render(data)',context);assert.equal(elements.resultBadge.textContent,'Uncertain');
 assert.match(html,/<video id="cameraVideo"/);assert.doesNotMatch(html,/capture="environment"/);
+assert.match(html,/<video id="chatCameraVideo"/);
+assert.match(html,/id="chatCapturePhoto"/);
+assert.match(html,/id="chatPhotoThread"/);
 assert.equal((html.match(/<audio /g)||[]).length,1);
 assert.match(css,/\.response-audio\.has-audio\s*\{[^}]*min-height:\s*114px/s);
 assert.match(css,/overflow-anchor:\s*none/);

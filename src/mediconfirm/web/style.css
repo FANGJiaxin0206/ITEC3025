@@ -225,8 +225,8 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .selected-card, .camera-card, .composer-card { margin: 18px 0; }
 .selected-card p { margin: 0; font-size: 20px; white-space: pre-line; }
 .camera-panel { margin: 12px 0; border-radius: 15px; overflow: hidden; background: #0e2925; }
-#cameraVideo, #preview { display: block; width: 100%; max-height: 440px; object-fit: contain; background: #eff2ed; }
-#cameraVideo { min-height: 240px; background: #0e2925; }
+#cameraVideo, #chatCameraVideo, #preview, #chatPreview { display: block; width: 100%; max-height: 440px; object-fit: contain; background: #eff2ed; }
+#cameraVideo, #chatCameraVideo { min-height: 240px; background: #0e2925; }
 .camera-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; margin: 12px 0; }
 .camera-actions > button:not(.image-upload-button) { width: auto; min-width: 0; flex: 1 1 0; }
 .camera-actions .image-upload-button {
@@ -269,6 +269,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .message { margin: 14px 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--white); white-space: pre-wrap; overflow-wrap: anywhere; }
 .message.user { margin-left: 24px; background: var(--warm); }
 .message.assistant { margin-right: 16px; }
+.chat-photo-thread { margin: 16px 0; }
+.photo-message { padding: 10px; }
+.photo-message img { border-radius: 12px; }
+.chat-camera-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 14px; }
+.chat-camera-actions button { flex: 1 1 180px; }
+.chat-camera-actions svg { width: 24px; height: 24px; }
 .composer-card label { display: block; font-weight: 700; }
 textarea, input, select {
   width: 100%;

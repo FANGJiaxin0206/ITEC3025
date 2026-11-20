@@ -86,6 +86,18 @@ class WorkflowTests(unittest.TestCase):
         self.confirm()
         self.assertEqual(self.app.flow_page, 'done')
 
+    def test_verified_package_can_be_confirmed_after_continuing_the_conversation(self):
+        self.route('check')
+        self.photo()
+        token = self.app.verification_id
+        self.route('ask-current')
+        self.chat('Can you explain this result?')
+        self.assertEqual(self.app.flow_page, 'chat')
+        self.confirm(token=token)
+        self.assertEqual(self.app.flow_page, 'done')
+        event = next(iter(json.loads(self.log.read_text())['events'].values()))
+        self.assertEqual(event['status'], 'Taken')
+
     def test_mismatch_cannot_save_intake(self):
         self.route('check')
         self.client.fields['strength'] = '200 mg'
@@ -220,6 +232,22 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(self.app.source_links, [])
         self.assertIsNone(self.app._drug_information)
         self.assertFalse(self.app.has_current_photo)
+
+    def test_general_uses_can_use_one_unambiguous_saved_schedule_item(self):
+        captured = []
+        class Source:
+            def lookup(self, fields):
+                captured.append(fields)
+                return {'status': 'found', 'source_title': 'Test source', 'published_date': 'test',
+                        'url': 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=test',
+                        'general_uses_text': 'Fictional sourced information only.'}
+        self.app.drug_source = Source()
+        self.route('chat')
+        self.chat('What is the medicine on my 08:00 list generally used for?')
+        self.assertEqual(captured[0]['name'], 'Example A')
+        self.assertEqual(captured[0]['strength'], '100 mg')
+        self.assertEqual(self.app._drug_information['lookup_basis'], 'saved medication list')
+        self.assertIn('Fictional sourced information only.', self.client.prompts[-1][0]['content'])
 
     def test_retaking_invalidates_old_context_before_new_image(self):
         self.route('check')

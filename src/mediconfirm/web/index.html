@@ -111,9 +111,45 @@
       </div>
       <p id="context" class="context" hidden></p>
       <div id="messages" class="messages" aria-live="polite"></div>
+      <section id="chatPhotoThread" class="chat-photo-thread" hidden>
+        <article class="message user photo-message">
+          <img id="chatPreview" alt="Medication package shared in this conversation" hidden>
+        </article>
+        <article class="message assistant">
+          <span id="chatResultBadge" class="badge">Check result</span>
+          <p id="chatResult" class="large"></p>
+          <div id="chatResultAudio" class="response-audio"></div>
+          <div class="action-stack">
+            <button id="chatRetake" class="secondary">Retake photo</button>
+            <button id="chatUses" class="secondary">What is this used for?</button>
+          </div>
+          <div id="chatConfirmation" class="confirmation-block" hidden>
+            <hr>
+            <h2>Have you taken it yet?</h2>
+            <div class="action-stack">
+              <button id="chatTaken" class="primary">I have taken it</button>
+              <button id="chatPending" class="secondary">Not yet</button>
+            </div>
+          </div>
+        </article>
+      </section>
       <section class="card composer-card">
         <label for="draft">Your message</label>
         <textarea id="draft" placeholder="Type a message, or record and review it…"></textarea>
+        <div id="chatCameraPanel" class="camera-panel" hidden>
+          <video id="chatCameraVideo" autoplay muted playsinline aria-label="Live camera preview in conversation"></video>
+        </div>
+        <p id="chatCameraStatus" class="small" role="status">Camera is off.</p>
+        <div class="chat-camera-actions">
+          <button id="chatOpenCamera" type="button" class="secondary">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7.5h3l1.5-2h7l1.5 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Take a photo
+          </button>
+          <button id="chatCapturePhoto" type="button" class="primary" disabled hidden>Capture</button>
+          <button id="chatCloseCamera" type="button" class="secondary" hidden>Close camera</button>
+          <button id="chatChooseImage" type="button" class="secondary">Choose an image</button>
+          <input id="chatUploadPhoto" class="file-input" type="file" accept="image/*" aria-label="Choose a medication package image">
+        </div>
         <p id="speechStatus" class="small" role="status"></p>
         <div class="chat-actions">
           <button id="uploadAudio" type="button" class="icon-button upload-audio-button"

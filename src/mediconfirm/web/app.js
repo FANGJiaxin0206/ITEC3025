@@ -47,6 +47,20 @@ const camera = new DesktopCamera($('cameraVideo'), {
     updateControls();
   }
 });
+const chatCamera = new DesktopCamera($('chatCameraVideo'), {
+  changed: (active, opening) => {
+    $('chatCameraPanel').hidden = !active && !opening;
+    $('chatOpenCamera').hidden = active || opening;
+    $('chatCapturePhoto').hidden = !active;
+    $('chatCloseCamera').hidden = !active;
+    $('chatCameraStatus').textContent = opening
+      ? 'Waiting for camera permission…'
+      : active
+        ? 'Live preview. Keep the whole medication label in view.'
+        : 'Camera is off.';
+    updateControls();
+  }
+});
 
 function notice(message) {
   $('notice').textContent = message || '';
@@ -73,6 +87,10 @@ function updateControls() {
   $('openCamera').disabled = busy || camera.opening;
   $('capturePhoto').disabled = busy || !camera.stream || camera.opening;
   $('closeCamera').disabled = busy || !camera.stream;
+  $('chatOpenCamera').disabled = busy || chatCamera.opening;
+  $('chatCapturePhoto').disabled = busy || !chatCamera.stream || chatCamera.opening;
+  $('chatCloseCamera').disabled = busy || !chatCamera.stream;
+  $('chatChooseImage').disabled = busy;
   $('record').hidden = !!recorder;
   $('stopRecord').hidden = !recorder;
   $('record').disabled = busy || recordingPending || !!recorder || !navigator.mediaDevices?.getUserMedia;
@@ -176,6 +194,7 @@ function showTab(name, sync = true) {
   if (!pages.has(name)) return;
   if (name !== tab) player.stop();
   if (name !== 'check') camera.stop();
+  if (name !== 'chat') chatCamera.stop();
   if (name !== 'chat') stopRecording(false);
   if (!['home', 'check', 'chat'].includes(name)) $('audio').pause();
   tab = name;
@@ -215,6 +234,10 @@ function render(data, { autoplay = false } = {}) {
   $('completionCard').hidden = data.flow_page !== 'done';
   $('helpCard').hidden = data.flow_page !== 'help';
   $('resultBadge').textContent = data.verification_status || 'Check result';
+  $('chatResultBadge').textContent = data.verification_status || 'Check result';
+  setText('chatResult', data.result_text);
+  $('chatPhotoThread').hidden = !data.has_current_photo;
+  $('chatConfirmation').hidden = !data.confirmation_ready;
   setText('speechStatus', data.speech_status ||
     (!navigator.mediaDevices?.getUserMedia ? 'Live recording needs HTTPS. You can type or upload a recording here.' : ''));
 
@@ -473,6 +496,9 @@ function audioSlot(clip) {
     return slot && clip.target === `plan:${slot.dataset.planTime}` ? slot : null;
   }
   if (clip.scope === 'check') {
+    if (clip.target === 'result' && tab === 'chat' && !$('chatPhotoThread').hidden) {
+      return $('chatResultAudio');
+    }
     return $({
       result: 'resultAudio',
       confirmation: 'confirmationAudio',
@@ -545,7 +571,9 @@ function syncAudio(autoplay) {
       }
     }
     player.restore(clip, slot);
-    if (unseen && clip.scope === tab && clip.status !== 'preparing' && !clip.note) {
+    const visibleHere = clip.scope === tab ||
+      (tab === 'chat' && clip.scope === 'check' && clip.target === 'result');
+    if (unseen && visibleHere && clip.status !== 'preparing' && !clip.note) {
       latest = { clip, slot, shouldAutoplay: autoplay || finishedPreparing };
     }
   }
@@ -557,7 +585,9 @@ function syncAudio(autoplay) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clip_id: requested.clip.id })
     }).then(result => {
-      if (result.allowed && tab === requested.clip.scope) {
+      const stillVisible = tab === requested.clip.scope ||
+        (tab === 'chat' && requested.clip.scope === 'check' && requested.clip.target === 'result');
+      if (result.allowed && stillVisible) {
         return player.play(requested.clip, requested.slot).catch(error => notice(error.message));
       }
       return undefined;
@@ -579,6 +609,8 @@ function clearPreview() {
   previewUrl = '';
   $('preview').removeAttribute('src');
   $('preview').hidden = true;
+  $('chatPreview').removeAttribute('src');
+  $('chatPreview').hidden = true;
 }
 
 async function preparePhoto() {
@@ -591,9 +623,10 @@ async function preparePhoto() {
   return success;
 }
 
-async function uploadPhoto(file) {
+async function uploadPhoto(file, origin = 'check') {
   if (!file || busy) return;
   camera.stop();
+  chatCamera.stop();
   if (!await preparePhoto()) return;
   setBusy(true);
   notice('');
@@ -615,6 +648,8 @@ async function uploadPhoto(file) {
     previewUrl = URL.createObjectURL(blob);
     $('preview').src = previewUrl;
     $('preview').hidden = false;
+    $('chatPreview').src = previewUrl;
+    $('chatPreview').hidden = false;
     const body = new FormData();
     body.append('photo', blob, 'photo.jpg');
     beginLocalTask();
@@ -623,7 +658,7 @@ async function uploadPhoto(file) {
     const data = await request('/api/photo', { method: 'POST', body });
     render(data, { autoplay: true });
     if (state?.flow_page === 'done') finishLocalTask();
-    showTab('check');
+    showTab(origin === 'chat' ? 'chat' : 'check');
   } catch (error) {
     notice(error.message || 'Choose a JPEG or PNG photo.');
     $('confirmation').hidden = true;
@@ -970,6 +1005,31 @@ $('uploadPhoto').addEventListener('change', event => {
   uploadPhoto(file);
 });
 $('chooseImage').addEventListener('click', () => $('uploadPhoto').click());
+$('chatOpenCamera').addEventListener('click', async () => {
+  if (busy || !await preparePhoto()) return;
+  camera.stop();
+  try {
+    await chatCamera.open();
+  } catch (error) {
+    $('chatCameraStatus').textContent = error.message;
+  }
+});
+$('chatCloseCamera').addEventListener('click', () => chatCamera.stop());
+$('chatCapturePhoto').addEventListener('click', async () => {
+  if (busy) return;
+  try {
+    const photo = await chatCamera.capture(document.createElement('canvas'));
+    if (photo) await uploadPhoto(photo, 'chat');
+  } catch (error) {
+    $('chatCameraStatus').textContent = error.message;
+  }
+});
+$('chatChooseImage').addEventListener('click', () => $('chatUploadPhoto').click());
+$('chatUploadPhoto').addEventListener('change', event => {
+  const file = event.target.files[0];
+  event.target.value = '';
+  uploadPhoto(file, 'chat');
+});
 $('uploadAudio').addEventListener('click', () => $('audioFile').click());
 $('audioFile').addEventListener('change', event => {
   const file = event.target.files[0];
@@ -980,6 +1040,12 @@ $('uses').addEventListener('click', async () => {
   showTab('chat');
   await act('uses');
 });
+$('chatRetake').addEventListener('click', () => $('chatOpenCamera').click());
+$('chatUses').addEventListener('click', () => act('uses'));
+$('chatTaken').addEventListener('click', () =>
+  act('confirm', { status: 'Taken', verification_id: state?.verification_id }));
+$('chatPending').addEventListener('click', () =>
+  act('confirm', { status: 'Pending', verification_id: state?.verification_id }));
 $('taken').addEventListener('click', () =>
   act('confirm', { status: 'Taken', verification_id: state?.verification_id }));
 $('pending').addEventListener('click', () =>
@@ -1034,6 +1100,7 @@ $('audio').addEventListener('error', () => {
 });
 window.addEventListener('pagehide', () => {
   camera.stop();
+  chatCamera.stop();
   stopRecording(false);
   $('audio').pause();
 });

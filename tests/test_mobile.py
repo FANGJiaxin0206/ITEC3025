@@ -58,6 +58,12 @@ class MobileTests(unittest.TestCase):
   self.photo();s=self.action('uses').get_json()
   self.assertEqual(s['source_mode'],'stored_official_label');self.assertTrue(s['source_links'])
   self.assertIn('hypertension',s['source_excerpt'].lower());self.assertIn('high blood pressure',s['dialogue_messages'][-1]['content'])
+ def test_saved_at_time_atorvastatin_uses_cached_source_without_photo(self):
+  self.action('save_list',medications=[dict(name='Atorvastatin Calcium',strength='40 mg',time='20:00',dose='1 tablet')])
+  s=self.action('chat',text='What is the medicine on my 20:00 list used for?').get_json()
+  self.assertEqual(s['source_mode'],'stored_official_label')
+  self.assertEqual(s['source_links'][0]['title'],'DailyMed: Atorvastatin Calcium')
+  self.assertTrue(s['source_excerpt'])
  def test_severe_report_blocks_further_photo_confirmation(self):
   self.photo();s=self.action('chat',text='I have chest pain').get_json();self.assertEqual(s['flow_page'],'help')
   self.assertIn('NOT SENT',s['notification_text']);self.assertFalse(s['confirmation_ready'])

@@ -12,7 +12,7 @@ from .simple_service import identify_photo
 from .dialogue import Dialogue
 from .speech_tools import transcribe_recording, spoken_text
 from .intake_store import record_intake, record_recovery, _moment, finish_interrupted_session
-from .core import severe_demo_signal, confirmation_intent
+from .core import severe_demo_signal, confirmation_intent, normalized
 from .plan_actions import process_plan, report_severe
 from .drug_sources import DailyMedSource, is_use_question
 
@@ -335,7 +335,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
             if report and severe_demo_signal(report):
                 self._interrupt_for_report(report)
                 return
-            if self._blocked or self.flow_page != 'check' or (not self.confirmation_ready) or (not self.last_result) or (self.last_result.get('status') != 'Match') or (not self._verification_token) or (payload.get('verification_id') != self._verification_token):
+            if self._blocked or self.flow_page not in {'check', 'chat'} or (not self.confirmation_ready) or (not self.last_result) or (self.last_result.get('status') != 'Match') or (not self._verification_token) or (payload.get('verification_id') != self._verification_token):
                 raise ValueError('Verify the current package before confirming. A previous result cannot confirm a new photo.')
             if self._verification_date != _moment(None).date().isoformat():
                 raise ValueError('The date has changed. Please take a new photo to verify the package.')
@@ -406,18 +406,41 @@ class SimpleCameraApp(anywidget.AnyWidget):
             return
         self._on_chat({'new': {'text': 'What is this medication generally used for?'}})
 
-    def _lookup_general_uses(self):
-        if self._drug_information and self._drug_information.get('status') == 'found':
+    def _general_use_fields(self, question=''):
+        """Resolve a use question to a photographed package or one saved-list item."""
+        text = normalized(question)
+        named = [med for med in self.medications or []
+                 if normalized(med.get('name', '')) and normalized(med.get('name', '')) in text]
+        if len(named) == 1:
+            med = named[0]
+            return {k: med.get(k) for k in ('name', 'strength', 'dosage_form')}, 'saved medication list'
+        photo_fields = (self.last_result or {}).get('fields', {})
+        if photo_fields.get('name') and photo_fields.get('strength'):
+            return photo_fields, 'photographed package'
+        scheduled = [med for med in self.medications or [] if med.get('time') == self.selected_time]
+        if len(scheduled) == 1:
+            med = scheduled[0]
+            return {k: med.get(k) for k in ('name', 'strength', 'dosage_form')}, 'saved medication list'
+        return {}, 'unresolved'
+
+    def _lookup_general_uses(self, question=''):
+        fields, basis = self._general_use_fields(question)
+        recognized = {k: fields.get(k) for k in ('name', 'strength', 'dosage_form')}
+        cached_fields = (self._drug_information or {}).get('recognized_fields', {})
+        if (self._drug_information and self._drug_information.get('status') == 'found'
+                and all(cached_fields.get(k) == recognized.get(k) for k in ('name', 'strength'))):
             return self._drug_information
         self.source_status = 'Looking up general uses on DailyMed. Only the recognized drug name is sent, not your health report.'
-        fields = (self.last_result or {}).get('fields', {})
         info = self.drug_source.lookup(fields)
-        info['recognized_fields'] = {k: fields.get(k) for k in ('name', 'strength', 'dosage_form')}
+        info['recognized_fields'] = recognized
+        info['lookup_basis'] = basis
         self._drug_information = info
         self.source_links = []
         if info.get('status') == 'found':
             self.source_links = [{'title': info['source_title'], 'url': info['url'], 'date': info.get('published_date', '')}]
-            self.source_status = ('Verified general-use source ready. ' + ('Stored official label, retrieved ' + info['retrieved_on'] + '. ' if info.get('retrieved_on') else '') + (info.get('form_note', 'Name, strength and dosage form matched. ')) + 'General uses only; not a personal prescribing reason.')
+            basis_note = ('The lookup used the saved medication name and strength; it does not verify the package in hand. '
+                          if basis == 'saved medication list' else '')
+            self.source_status = ('Verified general-use source ready. ' + ('Stored official label, retrieved ' + info['retrieved_on'] + '. ' if info.get('retrieved_on') else '') + basis_note + (info.get('form_note', 'Name, strength and dosage form matched. ')) + 'General uses only; not a personal prescribing reason.')
         else:
             self.source_status = 'No usable source was verified: ' + info.get('message', 'Please try again later.') + f" Recognized fields: name={fields.get('name')}, strength={fields.get('strength')}, form={fields.get('dosage_form')}."
         return info
@@ -459,7 +482,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
                 self._interrupt_for_report(text)
                 return
             if is_use_question(text):
-                self._lookup_general_uses()
+                self._lookup_general_uses(text)
             reply = self.dialogue.answer(self.client, text, 'conversation', self.medications, self.selected_time, self.last_result, drug_information=self._drug_information)
             self.dialogue_messages = list(self.dialogue.messages)
             self.chat_status = 'Reply ready. You can continue the conversation.'
