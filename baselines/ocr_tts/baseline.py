@@ -154,7 +154,7 @@ def label_summary(text):
 def speak_text(text):
     from gtts import gTTS
     buffer = io.BytesIO()
-    gTTS(text=text, lang='en').write_to_fp(buffer)
+    gTTS(text=text, lang='en', tld='co.uk').write_to_fp(buffer)
     return base64.b64encode(buffer.getvalue()).decode('ascii')
 
 

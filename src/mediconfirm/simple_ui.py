@@ -381,7 +381,7 @@ class SimpleCameraApp(anywidget.AnyWidget):
             if self.voice and text:
                 from gtts import gTTS
                 audio = io.BytesIO()
-                gTTS(text=text, lang='en', timeout=15).write_to_fp(audio)
+                gTTS(text=text, lang='en', tld='co.uk', timeout=15).write_to_fp(audio)
                 self.audio_data = base64.b64encode(audio.getvalue()).decode('ascii')
         except Exception:
             self.audio_note = 'Speech could not be generated. The text is still available. Select Replay to retry, or read the text.'

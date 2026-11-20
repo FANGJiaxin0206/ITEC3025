@@ -63,7 +63,7 @@ class VQAClient:
 
 def speak_text(text):
     from gtts import gTTS
-    output=io.BytesIO();gTTS(text=text,lang='en').write_to_fp(output)
+    output=io.BytesIO();gTTS(text=text,lang='en',tld='co.uk').write_to_fp(output)
     return base64.b64encode(output.getvalue()).decode('ascii')
 
 

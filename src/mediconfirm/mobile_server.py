@@ -58,7 +58,7 @@ class PhoneSession:
             try:
                 from gtts import gTTS
                 audio = io.BytesIO()
-                gTTS(text=text, lang='en', timeout=15).write_to_fp(audio)
+                gTTS(text=text, lang='en', tld='co.uk', timeout=15).write_to_fp(audio)
                 data = base64.b64encode(audio.getvalue()).decode('ascii')
             except Exception:
                 note = 'Speech could not be generated. The written response is still available. Select Listen to retry.'
