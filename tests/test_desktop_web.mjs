@@ -9,6 +9,7 @@ class Element {
  addEventListener(){}setAttribute(){}pause(){this.paused=true;}removeAttribute(){}play(){this.playCalls=(this.playCalls||0)+1;this.paused=false;return Promise.resolve();}
 }
 const html=fs.readFileSync(new URL('../src/mediconfirm/web/index.html',import.meta.url),'utf8');
+const css=fs.readFileSync(new URL('../src/mediconfirm/web/style.css',import.meta.url),'utf8');
 const elements=Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map(m=>[m[1],new Element()]));elements.historyFilter.value='all';
 const tabs=['home','check','chat','me','list','history','settings','family'].map(name=>{const e=new Element();e.dataset.tab=name;return e;});
 const context={DesktopCamera,SingleAudioPlayer,console,location:{search:'',pathname:'/'},history:{replaceState(){}},navigator:{},window:{addEventListener(){}},Intl,Date,URL,Blob,JSON,Number,String,queueMicrotask,setTimeout,clearTimeout,setInterval(){},document:{getElementById:id=>elements[id],createElement:tag=>new Element(tag),addEventListener(){},querySelectorAll:selector=>selector==='[data-tab]'?tabs:[]},fetch:async(path)=>({ok:true,json:async()=>path==='/api/audio/claim'?{allowed:true}:base()})};
@@ -20,8 +21,12 @@ context.data={...base(),flow_page:'done'};vm.runInContext('render(data);showTab(
 context.data={...base(),verification_status:'Uncertain'};vm.runInContext('render(data)',context);assert.equal(elements.resultBadge.textContent,'Uncertain');
 assert.match(html,/<video id="cameraVideo"/);assert.doesNotMatch(html,/capture="environment"/);
 assert.equal((html.match(/<audio /g)||[]).length,1);
+assert.match(css,/\.response-audio\.has-audio\s*\{[^}]*min-height:\s*114px/s);
+assert.match(css,/overflow-anchor:\s*none/);
 console.log('Desktop web checks passed: edited transcript preserved, History stays open, explicit result states, real video controls.');
 
 context.data={...base(),has_current_photo:true,audio_clips:[{id:'clip-once',scope:'check',target:'result',url:'/api/audio/clip-once'}]};vm.runInContext('showTab("check");render(data)',context);await new Promise(resolve=>setImmediate(resolve));assert.equal(elements.audio.playCalls||0,0);
 context.data.audio_clips[0].id='clip-actor';vm.runInContext('render(data,{autoplay:true})',context);await new Promise(resolve=>setImmediate(resolve));assert.equal(elements.audio.playCalls,1);vm.runInContext('render(data)',context);await new Promise(resolve=>setImmediate(resolve));assert.equal(elements.audio.playCalls,1);
+context.data={...base(),has_current_photo:true,audio_clips:[{id:'clip-preparing',scope:'check',target:'result',url:'/api/audio/clip-preparing',status:'preparing'}]};vm.runInContext('render(data,{autoplay:true})',context);await new Promise(resolve=>setImmediate(resolve));const playsBeforeReady=elements.audio.playCalls||0;
+context.data.audio_clips[0]={id:'clip-ready',scope:'check',target:'result',url:'/api/audio/clip-ready',status:'ready'};vm.runInContext('render(data)',context);await new Promise(resolve=>setImmediate(resolve));assert.equal(elements.audio.playCalls,playsBeforeReady+1);
 console.log('Background polling does not replay responses.');

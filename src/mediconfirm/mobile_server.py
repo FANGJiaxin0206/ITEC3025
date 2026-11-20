@@ -6,7 +6,7 @@ import secrets
 import threading
 from datetime import timedelta
 from pathlib import Path
-from flask import Flask, jsonify, request, session, send_from_directory, Response
+from flask import Flask, jsonify, request, session, send_file, send_from_directory, Response
 from PIL import Image, ImageOps, UnidentifiedImageError
 from .bulk_medications import load_saved_medications, save_medication_entries
 from .simple_ui import SimpleCameraApp
@@ -453,7 +453,11 @@ def create_app(root, access_token=None, config=None, start_scheduler=False):
             clip=next((c for c in phone.audio_clips.values() if c['id']==clip_id),None)
             if not clip or not clip['data']:
                 return jsonify(error='Audio is unavailable. Select Listen to retry.'),404
-            return Response(base64.b64decode(clip['data']),mimetype='audio/mpeg')
+            # A conditional file response supports HTTP byte ranges. Browsers
+            # need those ranges to seek with the native audio progress bar.
+            audio_data=io.BytesIO(base64.b64decode(clip['data']))
+            return send_file(audio_data,mimetype='audio/mpeg',conditional=True,
+                download_name=f'{clip_id}.mp3',max_age=0)
 
     @app.post('/api/speech')
     def speech():

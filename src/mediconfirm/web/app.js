@@ -495,6 +495,7 @@ function syncAudio(autoplay) {
   for (const slot of document.querySelectorAll('.response-audio')) {
     if (slot.dataset.clipId && !valid.has(slot.dataset.clipId)) {
       slot.replaceChildren();
+      slot.classList.toggle('has-audio', false);
       delete slot.dataset.clipId;
     }
   }
@@ -504,6 +505,16 @@ function syncAudio(autoplay) {
     const unseen = !seenAudio.has(clip.id);
     seenAudio.add(clip.id);
     if (!slot) continue;
+    const finishedPreparing = slot.dataset.audioPreparing === 'true' &&
+      clip.status !== 'preparing';
+    if (clip.status === 'preparing') {
+      slot.dataset.audioPreparing = 'true';
+    } else if (finishedPreparing) {
+      delete slot.dataset.audioPreparing;
+    }
+    // Reserve the final player height while TTS is still being prepared, so
+    // inserting the shared audio element does not make the page jump.
+    slot.classList.toggle('has-audio', true);
     if (slot.dataset.clipId !== clip.id) {
       slot.dataset.clipId = clip.id;
       slot.replaceChildren();
@@ -535,10 +546,10 @@ function syncAudio(autoplay) {
     }
     player.restore(clip, slot);
     if (unseen && clip.scope === tab && clip.status !== 'preparing' && !clip.note) {
-      latest = { clip, slot };
+      latest = { clip, slot, shouldAutoplay: autoplay || finishedPreparing };
     }
   }
-  if (latest && latest.clip.target !== 'reminder' && autoplay &&
+  if (latest && latest.clip.target !== 'reminder' && latest.shouldAutoplay &&
       document.visibilityState !== 'hidden') {
     const requested = latest;
     request('/api/audio/claim', {

@@ -1,4 +1,5 @@
 import unittest
+import base64
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from unittest.mock import patch
@@ -43,6 +44,15 @@ class AudioUXTests(unittest.TestCase):
  def test_audio_endpoint_requires_authorization(self):
   self.assertEqual(self.app.test_client().get('/api/audio/unknown').status_code,401)
   self.assertEqual(self.client.get('/api/audio/unknown').status_code,404)
+ def test_audio_endpoint_supports_progress_bar_range_requests(self):
+  clip_id='seekable-audio'
+  self.phone.audio_clips['check:result']={
+   'id':clip_id,'scope':'check','target':'result','text':'Test',
+   'data':base64.b64encode(b'0123456789').decode('ascii'),'note':'','status':'ready'}
+  response=self.client.get('/api/audio/'+clip_id,headers={'Range':'bytes=2-5'})
+  self.assertEqual(response.status_code,206)
+  self.assertEqual(response.data,b'2345')
+  self.assertEqual(response.headers.get('Accept-Ranges'),'bytes')
  def test_prompt_requests_plain_explanation_and_strips_ui_metadata(self):
   captured=[]
   class Client:
