@@ -705,26 +705,47 @@ async function startRecording() {
   }
 }
 
-function timeWheel(value = '08:00') {
+function timeEntry(value = '08:00') {
   const wrap = document.createElement('div');
-  wrap.className = 'time-wheel';
+  wrap.className = 'time-entry';
   const parts = value.split(':');
-  for (const [kind, total, initial] of [
-    ['hour', 24, parts[0]],
-    ['minute', 60, parts[1]]
+  for (const [kind, maximum, initial] of [
+    ['hour', 23, parts[0]],
+    ['minute', 59, parts[1]]
   ]) {
-    const select = document.createElement('select');
-    select.dataset.timePart = kind;
-    select.size = 3;
-    select.setAttribute('aria-label', kind === 'hour' ? 'Hour' : 'Minute');
-    for (let i = 0; i < total; i++) {
-      const option = document.createElement('option');
-      option.value = String(i).padStart(2, '0');
-      option.textContent = option.value;
-      select.appendChild(option);
-    }
-    select.value = initial || '00';
-    wrap.appendChild(select);
+    const part = document.createElement('div');
+    part.className = 'time-part';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.maxLength = 2;
+    input.dataset.timePart = kind;
+    input.value = String(Number(initial || 0)).padStart(2, '0');
+    input.setAttribute('aria-label', kind === 'hour' ? 'Hour, 00 to 23' : 'Minute, 00 to 59');
+    const normalize = () => {
+      const parsed = Number.parseInt(input.value, 10);
+      const safe = Number.isFinite(parsed) ? Math.min(maximum, Math.max(0, parsed)) : 0;
+      input.value = String(safe).padStart(2, '0');
+    };
+    input.addEventListener('input', () => {
+      input.value = input.value.replace(/\D/g, '').slice(0, 2);
+    });
+    input.addEventListener('blur', normalize);
+    const step = (label, delta) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'time-step';
+      button.textContent = delta < 0 ? '−' : '+';
+      button.setAttribute('aria-label', `${label} ${kind}`);
+      button.addEventListener('click', () => {
+        const current = Number.parseInt(input.value, 10) || 0;
+        const total = maximum + 1;
+        input.value = String((current + delta + total) % total).padStart(2, '0');
+      });
+      return button;
+    };
+    part.append(step('Decrease', -1), input, step('Increase', 1));
+    wrap.appendChild(part);
     if (kind === 'hour') {
       const separator = document.createElement('span');
       separator.className = 'time-separator';
@@ -770,9 +791,9 @@ function addMedicationRow(medication = {}) {
   times.className = 'intake-times';
   const timesTitle = document.createElement('p');
   timesTitle.className = 'intake-times-title';
-  timesTitle.textContent = 'Add alarm';
+  timesTitle.textContent = 'Intake times';
   times.appendChild(timesTitle);
-  for (const time of (medication.time || '08:00').split(';')) times.appendChild(timeWheel(time));
+  for (const time of (medication.time || '08:00').split(';')) times.appendChild(timeEntry(time));
   const addTime = document.createElement('button');
   addTime.type = 'button';
   addTime.textContent = '+ Add intake time';
@@ -781,14 +802,14 @@ function addMedicationRow(medication = {}) {
   removeTime.type = 'button';
   removeTime.className = 'quiet remove-time';
   removeTime.append(makeIcon(['M5 12h14']), document.createTextNode('Remove time'));
-  removeTime.disabled = times.querySelectorAll('.time-wheel').length === 0;
+  removeTime.disabled = times.querySelectorAll('.time-entry').length <= 1;
   removeTime.addEventListener('click', () => {
-    const wheels = times.querySelectorAll('.time-wheel');
-    wheels[wheels.length - 1]?.remove();
-    removeTime.disabled = wheels.length <= 1;
+    const entries = times.querySelectorAll('.time-entry');
+    if (entries.length > 1) entries[entries.length - 1].remove();
+    removeTime.disabled = entries.length <= 2;
   });
   addTime.addEventListener('click', () => {
-    times.appendChild(timeWheel());
+    times.appendChild(timeEntry());
     removeTime.disabled = false;
   });
   const removeMedication = document.createElement('button');
@@ -824,9 +845,9 @@ function readMedicationRows() {
     for (const input of row.querySelectorAll('input[data-field]')) {
       result[input.dataset.field] = input.value.trim();
     }
-    result.time = [...row.querySelectorAll('.time-wheel')]
-      .map(wheel => [...wheel.querySelectorAll('select')]
-        .map(select => select.value).join(':'))
+    result.time = [...row.querySelectorAll('.time-entry')]
+      .map(entry => [...entry.querySelectorAll('input[data-time-part]')]
+        .map(input => String(Number.parseInt(input.value, 10) || 0).padStart(2, '0')).join(':'))
       .filter(Boolean)
       .join(';');
     return result;

@@ -295,11 +295,31 @@ textarea { min-height: 110px; margin: 8px 0; resize: vertical; }
 .med-fields input { margin-top: 6px; }
 .intake-times { margin-top: 18px; }
 .intake-times-title { margin: 0 0 10px; color: var(--muted); font-weight: 700; }
-.time-wheel { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 18px; margin: 12px 0; }
-.time-wheel select { height: 132px; padding: 6px; background: var(--paper); font-size: 22px; text-align: center; scroll-snap-type: y mandatory; }
-.time-wheel .time-separator { font-size: 26px; font-weight: 700; }
-.time-wheel option { padding: 6px; scroll-snap-align: center; }
-.time-wheel option:checked { background: var(--warm); font-weight: 700; }
+.time-entry { display: flex; align-items: center; gap: 14px; margin: 12px 0; }
+.time-part { display: grid; grid-template-columns: 54px 86px 54px; align-items: center; gap: 8px; }
+.time-part input {
+  height: 64px;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--green);
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.time-step {
+  min-width: 54px;
+  min-height: 54px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--green);
+  font-size: 30px;
+  line-height: 1;
+}
+.time-entry .time-separator { font-size: 30px; font-weight: 700; }
 .med-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
 .med-row-actions .add-time, .med-row-actions .remove-time {
   min-height: 58px;
@@ -377,6 +397,11 @@ textarea { min-height: 110px; margin: 8px 0; resize: vertical; }
   .med-fields { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
   .med-fields label { font-size: 12px; }
   .med-fields input { min-width: 0; padding: 8px 6px; font-size: 14px; }
+  .time-entry { gap: 6px; }
+  .time-part { grid-template-columns: 42px 58px 42px; gap: 4px; }
+  .time-part input { height: 52px; padding: 5px; font-size: 21px; }
+  .time-step { min-width: 42px; min-height: 42px; font-size: 24px; }
+  .time-entry .time-separator { font-size: 24px; }
   .med-row-actions { flex-wrap: wrap; gap: 6px; }
   .med-row-actions .add-time, .med-row-actions .remove-time, .med-row-actions .remove-medication {
     min-height: 48px;

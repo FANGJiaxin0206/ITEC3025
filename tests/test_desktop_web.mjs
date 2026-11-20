@@ -23,6 +23,9 @@ assert.match(html,/<video id="cameraVideo"/);assert.doesNotMatch(html,/capture="
 assert.equal((html.match(/<audio /g)||[]).length,1);
 assert.match(css,/\.response-audio\.has-audio\s*\{[^}]*min-height:\s*114px/s);
 assert.match(css,/overflow-anchor:\s*none/);
+assert.match(css,/\.time-entry\s*\{/);
+assert.doesNotMatch(css,/\.time-wheel\s*\{/);
+assert.match(fs.readFileSync(new URL('../src/mediconfirm/web/app.js',import.meta.url),'utf8'),/Intake times/);
 console.log('Desktop web checks passed: edited transcript preserved, History stays open, explicit result states, real video controls.');
 
 context.data={...base(),has_current_photo:true,audio_clips:[{id:'clip-once',scope:'check',target:'result',url:'/api/audio/clip-once'}]};vm.runInContext('showTab("check");render(data)',context);await new Promise(resolve=>setImmediate(resolve));assert.equal(elements.audio.playCalls||0,0);
